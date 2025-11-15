@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from "react";
+import axios from "axios";
+
 import Sidebar from "./components/Sidebar";
 import Topbar from "./components/Topbar";
 
@@ -13,6 +15,8 @@ export default function App() {
   const [documents, setDocuments] = useState([]);
   const [jobDescription, setJobDescription] = useState("");
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+
+  const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
 
   // theme: 'light' | 'dark'
   const [theme, setTheme] = useState(() => {
@@ -29,9 +33,19 @@ export default function App() {
     localStorage.setItem("theme", theme);
   }, [theme]);
 
-  const handleLogin = (userData) => {
-    setUser(userData);
-    setCurrentPage("upload");
+  const handleLogin = async (userData) => {
+    try {
+      const res = await axios.post(BACKEND_URL + "/api/auth/login", userData);
+      console.log(res.data.user);
+      localStorage.setItem("token", res.data.token);
+      if (res.status == 200) {
+        setCurrentPage("upload");
+        setUser(res.data.user);
+      }
+    } catch (err) {
+      setUser(null);
+      console.log("Error logging in: ", err);
+    }
   };
 
   // deduplicate on upload by file name

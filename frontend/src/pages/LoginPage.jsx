@@ -8,7 +8,7 @@ export default function LoginPage({ onLogin }) {
   const handle = (e) => {
     e.preventDefault()
     if (!email || !password) return
-    onLogin({ email, name: email.split('@')[0] })
+    onLogin({ email, password })
   }
 
   return (

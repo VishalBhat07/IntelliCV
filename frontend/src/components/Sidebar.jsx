@@ -46,7 +46,7 @@ export default function Sidebar({ user, current, setCurrent }) {
       <div className="p-4 border-t">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 bg-indigo-100 rounded-full flex items-center justify-center">
-            <span className="text-indigo-600 font-semibold">{user.name[0].toUpperCase()}</span>
+            <span className="text-indigo-600 font-semibold">{user.name}</span>
           </div>
           <div>
             <p className="font-semibold text-gray-900">{user.name}</p>
