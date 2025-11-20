@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import axios from "axios";
 import { Upload, FileText, CheckCircle, Loader2 } from "lucide-react";
 
 export default function UploadDocuments({
@@ -10,33 +11,61 @@ export default function UploadDocuments({
   const [progress, setProgress] = useState(0);
   const [dragActive, setDragActive] = useState(false);
 
+  // backend base URL: prefer Vite env `VITE_BACKEND_URL`, fallback to localhost
+  const BACKEND_URL =
+    import.meta.env.VITE_BACKEND_URL || "http://localhost:8080";
+
   const handleFileUpload = (files) => {
     if (!files || files.length === 0) return;
     setUploading(true);
     setProgress(0);
 
-    // simulate progress and create fake file objects
-    const fakeDocs = Array.from(files).map((f) => ({
-      name: f.name,
-      type: f.type || "PDF",
-      size: `${(f.size / (1024 * 1024)).toFixed(2)} MB`,
-      uploadDate: new Date().toLocaleDateString(),
-    }));
+    // Build form data
+    const fd = new FormData();
+    // attempt to get user id from localStorage, fallback to 1
+    const userId = window.localStorage.getItem("user_id") || "1";
+    fd.append("user_id", userId);
+    Array.from(files).forEach((f) => fd.append("files", f));
 
-    const interval = setInterval(() => {
-      setProgress((p) => {
-        if (p >= 90) {
-          clearInterval(interval);
-          setTimeout(() => {
-            onUpload(fakeDocs);
-            setUploading(false);
-            setProgress(0);
-          }, 400);
-          return 100;
-        }
-        return p + 10;
+    // Use axios to upload and track progress
+    const url = `${BACKEND_URL.replace(/\/$/, "")}/api/upload`;
+    axios
+      .post(url, fd, {
+        // do NOT set Content-Type header manually; let axios/browser set the
+        // correct multipart/form-data boundary so multer can parse files
+        onUploadProgress: (progressEvent) => {
+          if (progressEvent.lengthComputable) {
+            const percent = Math.round(
+              (progressEvent.loaded / progressEvent.total) * 100
+            );
+            setProgress(percent);
+          }
+        },
+      })
+      .then((resp) => {
+        setUploading(false);
+        setProgress(0);
+        const data = resp.data;
+        const uploaded = (data.files || []).map((f) => ({
+          name: f.file_name,
+          type: "Uploaded",
+          size: "-",
+          uploadDate: new Date().toLocaleDateString(),
+        }));
+        onUpload && onUpload(uploaded);
+      })
+      .catch((err) => {
+        setUploading(false);
+        setProgress(0);
+        const resp = err?.response;
+        const respData = resp?.data;
+        console.error("Upload error response:", respData || err.message, resp);
+        const msg =
+          (respData && (respData.msg || respData.error)) ||
+          err.message ||
+          "Upload failed";
+        alert(`Upload failed: ${msg}`);
       });
-    }, 150);
   };
 
   const onDrop = (e) => {
