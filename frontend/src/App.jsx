@@ -29,6 +29,9 @@ export default function App() {
       const res = await axios.post(BACKEND_URL + "/api/auth/login", userData);
       console.log(res.data.user);
       localStorage.setItem("token", res.data.token);
+      if (res.data?.user?.user_id != null) {
+        localStorage.setItem("user_id", String(res.data.user.user_id));
+      }
       toast.success("Login successful");
       if (res.status == 200) {
         setCurrentPage("upload");
@@ -84,6 +87,7 @@ export default function App() {
 
   const handleLogout = () => {
     localStorage.removeItem("token");
+    localStorage.removeItem("user_id");
     setUser(null);
     setAuthMode("login");
     setCurrentPage("upload");

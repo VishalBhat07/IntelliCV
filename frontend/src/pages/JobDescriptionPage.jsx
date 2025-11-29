@@ -13,6 +13,9 @@ export default function JobDescriptionPage({
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState(0);
   const [uploadError, setUploadError] = useState("");
+  const [exporting, setExporting] = useState(false);
+  const [exportStatus, setExportStatus] = useState("");
+  const [exportError, setExportError] = useState("");
 
   const BACKEND_URL =
     import.meta.env.VITE_BACKEND_URL || "http://localhost:8080";
@@ -22,13 +25,50 @@ export default function JobDescriptionPage({
     [documents]
   );
 
-  const submit = () => {
-    // if user pasted text, use it
-    if (jdText.trim()) return onNext(jdText.trim());
+  const submit = async () => {
+    if (uploading || exporting) return;
 
-    // if a file was uploaded, proceed using filename as reference
-    if (uploadedFileName && !jdText.trim()) {
-      return onNext(`Uploaded file: ${uploadedFileName}`);
+    const trimmed = jdText.trim();
+    if (!trimmed && !uploadedFileName) return;
+
+    const userId = window.localStorage.getItem("user_id") || "";
+    if (!userId) {
+      setExportError("No user ID available for export");
+      return;
+    }
+
+    setExportError("");
+    setExportStatus("");
+    setExporting(true);
+
+    const exportUrl = `${BACKEND_URL.replace(/\/$/, "")}/api/upload/export`;
+
+    let exportFailed = false;
+
+    try {
+      const { data } = await axios.post(exportUrl, { user_id: userId });
+      const msg = data?.msg || "Documents exported";
+      const dir = data?.baseDir || data?.directory;
+      setExportStatus(dir ? `${msg}. Saved to ${dir}` : msg);
+    } catch (err) {
+      console.error("Failed to export documents", err);
+      const msg =
+        err?.response?.data?.msg ||
+        err?.response?.data?.error ||
+        err.message ||
+        "Failed to export documents";
+      setExportError(msg);
+      exportFailed = true;
+    } finally {
+      setExporting(false);
+    }
+
+    if (exportFailed) return;
+
+    if (trimmed) {
+      onNext(trimmed);
+    } else if (uploadedFileName) {
+      onNext(`Uploaded file: ${uploadedFileName}`);
     }
   };
 
@@ -162,13 +202,21 @@ export default function JobDescriptionPage({
         <div className="flex justify-end">
           <button
             onClick={submit}
-            disabled={uploading || (!jdText.trim() && !uploadedFileName)}
+            disabled={
+              uploading || exporting || (!jdText.trim() && !uploadedFileName)
+            }
             className="px-8 py-3 bg-indigo-600 text-white rounded-lg font-semibold hover:bg-indigo-700 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center gap-2"
           >
             <Briefcase className="w-5 h-5" />
-            Analyze & Match
+            {exporting ? "Preparing..." : "Analyze & Match"}
           </button>
         </div>
+        {(exportStatus || exportError) && (
+          <div className="text-sm mt-2">
+            {exportStatus && <p className="text-green-600">{exportStatus}</p>}
+            {exportError && <p className="text-red-600">{exportError}</p>}
+          </div>
+        )}
       </div>
 
       {jobDocuments.length > 0 && (

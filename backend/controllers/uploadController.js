@@ -1,7 +1,10 @@
+const fs = require("fs");
+const path = require("path");
 const multer = require("multer");
+const { ObjectId } = require("mongodb");
 const { Readable } = require("stream");
 const Document = require("../models/Document");
-const { getBucket } = require("../config/mongo");
+const { getBucket, connect } = require("../config/mongo");
 
 // allowed extensions and mime types
 const ALLOWED_EXT = [".pdf", ".docx", ".doc"];
@@ -120,7 +123,6 @@ exports.streamFile = async (req, res) => {
       return res.status(500).json({ msg: "MongoDB not connected" });
     }
 
-    const { ObjectId } = require("mongodb");
     let objectId;
     try {
       objectId = new ObjectId(id);
@@ -146,6 +148,71 @@ exports.streamFile = async (req, res) => {
       return res.status(500).json({ msg: "Error streaming file" });
     });
     downloadStream.pipe(res);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+// POST /api/upload/export -> export all user documents into Processing/uploads/{type}
+exports.exportUserDocuments = async (req, res) => {
+  try {
+    const user_id = req.body.user_id || req.params.user_id;
+    if (!user_id) return res.status(400).json({ msg: "user_id required" });
+
+    let bucket;
+    try {
+      bucket = getBucket();
+    } catch (err) {
+      await connect();
+      bucket = getBucket();
+    }
+
+    const docs = await Document.findAll({ where: { user_id } });
+    if (!docs || docs.length === 0) {
+      return res.json({ msg: "No documents found for user", count: 0 });
+    }
+
+    const baseDir = path.resolve(__dirname, "../../Processing/uploads");
+    await fs.promises.mkdir(baseDir, { recursive: true });
+
+    let savedCount = 0;
+
+    for (const doc of docs) {
+      const bucketType = doc.file_type || "Miscellaneous";
+      const safeType = bucketType.replace(/[^a-z0-9_-]/gi, "_");
+      const typeDir = path.join(baseDir, safeType);
+      await fs.promises.mkdir(typeDir, { recursive: true });
+
+      let objectId;
+      try {
+        objectId = new ObjectId(doc.mongo_file_id);
+      } catch (err) {
+        continue;
+      }
+
+      const originalName = path.basename(doc.file_name || "document");
+      const filename = `${doc.id}_${originalName}`;
+      const filePath = path.join(typeDir, filename);
+
+      await new Promise((resolve, reject) => {
+        const downloadStream = bucket.openDownloadStream(objectId);
+        const writeStream = fs.createWriteStream(filePath);
+
+        downloadStream.on("error", reject);
+        writeStream.on("error", reject);
+        writeStream.on("finish", resolve);
+
+        downloadStream.pipe(writeStream);
+      });
+
+      savedCount += 1;
+    }
+
+    res.json({
+      msg: "Documents exported successfully",
+      count: savedCount,
+      baseDir,
+    });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
