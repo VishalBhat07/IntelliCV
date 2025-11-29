@@ -1,6 +1,8 @@
 import React, { useState } from "react";
 import axios from "axios";
-import { Upload, FileText, CheckCircle, Loader2 } from "lucide-react";
+import { Upload, FileText, CheckCircle } from "lucide-react";
+
+const FILE_TYPES = ["Certificates", "Project", "Education", "Miscellaneous"];
 
 export default function UploadDocuments({
   documents = [],
@@ -10,6 +12,7 @@ export default function UploadDocuments({
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState(0);
   const [dragActive, setDragActive] = useState(false);
+  const [fileType, setFileType] = useState(FILE_TYPES[0]);
 
   // backend base URL: prefer Vite env `VITE_BACKEND_URL`, fallback to localhost
   const BACKEND_URL =
@@ -25,6 +28,7 @@ export default function UploadDocuments({
     // attempt to get user id from localStorage, fallback to 1
     const userId = window.localStorage.getItem("user_id") || "1";
     fd.append("user_id", userId);
+    fd.append("file_type", fileType);
     Array.from(files).forEach((f) => fd.append("files", f));
 
     // Use axios to upload and track progress
@@ -48,7 +52,7 @@ export default function UploadDocuments({
         const data = resp.data;
         const uploaded = (data.files || []).map((f) => ({
           name: f.file_name,
-          type: "Uploaded",
+          type: f.file_type || fileType,
           size: "-",
           uploadDate: new Date().toLocaleDateString(),
         }));
@@ -86,6 +90,24 @@ export default function UploadDocuments({
 
   return (
     <div className="space-y-6">
+      <div className="bg-white rounded-xl shadow-sm p-6">
+        <label className="block text-sm font-medium text-gray-700 mb-2">
+          Select document type
+        </label>
+        <select
+          value={fileType}
+          onChange={(e) => setFileType(e.target.value)}
+          disabled={uploading}
+          className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+        >
+          {FILE_TYPES.map((type) => (
+            <option key={type} value={type}>
+              {type}
+            </option>
+          ))}
+        </select>
+      </div>
+
       <div
         className={`bg-white rounded-xl shadow-sm p-6 border-2 border-dashed transition-all ${
           dragActive ? "border-indigo-500 bg-indigo-50" : "border-gray-300"

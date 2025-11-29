@@ -1,6 +1,14 @@
 const { DataTypes } = require("sequelize");
 const { sequelize } = require("../config/db");
 
+const DOCUMENT_TYPES = [
+  "Certificates",
+  "Project",
+  "Education",
+  "JobDescription",
+  "Miscellaneous",
+];
+
 const Document = sequelize.define(
   "Document",
   {
@@ -20,6 +28,9 @@ const Document = sequelize.define(
     file_type: {
       type: DataTypes.STRING,
       allowNull: false,
+      validate: {
+        isIn: [DOCUMENT_TYPES],
+      },
     },
     file_size: {
       type: DataTypes.BIGINT,
@@ -39,5 +50,7 @@ const Document = sequelize.define(
     tableName: "Document",
   }
 );
+
+Document.DOCUMENT_TYPES = DOCUMENT_TYPES;
 
 module.exports = Document;

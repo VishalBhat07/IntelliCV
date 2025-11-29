@@ -146,6 +146,8 @@ export default function App() {
               <JobDescriptionPage
                 onNext={handleJobDesc}
                 initialText={jobDescription}
+                onUploadDocument={handleUpload}
+                documents={documents}
               />
             )}
             {currentPage === "resume" && (

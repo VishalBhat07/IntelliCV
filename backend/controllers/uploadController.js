@@ -10,6 +10,7 @@ const ALLOWED_MIME = [
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
   "application/msword",
 ];
+const ALLOWED_TYPES = Document.DOCUMENT_TYPES;
 
 const storage = multer.memoryStorage();
 const upload = multer({ storage });
@@ -22,10 +23,20 @@ exports.handleUpload = async (req, res) => {
   try {
     const files = req.files;
     const user_id = req.body.user_id;
+    const typePayload = req.body.file_type;
+    const file_type = Array.isArray(typePayload)
+      ? typePayload[0]
+      : typeof typePayload === "string"
+      ? typePayload.trim()
+      : "";
 
     if (!user_id) return res.status(400).json({ msg: "user_id required" });
     if (!files || files.length === 0)
       return res.status(400).json({ msg: "No files uploaded" });
+    if (!file_type)
+      return res.status(400).json({ msg: "file_type is required" });
+    if (!ALLOWED_TYPES.includes(file_type))
+      return res.status(400).json({ msg: "Invalid file_type" });
 
     // validate files
     for (const f of files) {
@@ -55,7 +66,7 @@ exports.handleUpload = async (req, res) => {
       const stream = Readable.from(f.buffer);
       const uploadStream = bucket.openUploadStream(f.originalname, {
         contentType: f.mimetype,
-        metadata: { user_id: user_id.toString() },
+        metadata: { user_id: user_id.toString(), file_type },
       });
 
       await new Promise((resolve, reject) => {
@@ -68,7 +79,7 @@ exports.handleUpload = async (req, res) => {
               const doc = await Document.create({
                 user_id: user_id,
                 file_name: f.originalname,
-                file_type: f.mimetype,
+                file_type,
                 file_size: f.size,
                 mongo_file_id: uploadStream.id.toString(),
               });
@@ -76,6 +87,7 @@ exports.handleUpload = async (req, res) => {
               results.push({
                 id: doc.id,
                 file_name: doc.file_name,
+                file_type: doc.file_type,
                 mongo_file_id: doc.mongo_file_id,
               });
 

@@ -1,11 +1,26 @@
-import React, { useState } from "react";
-import { Briefcase } from "lucide-react";
+import React, { useMemo, useState } from "react";
+import axios from "axios";
+import { Briefcase, FileText, CheckCircle } from "lucide-react";
 
-export default function JobDescriptionPage({ onNext, initialText = "" }) {
+export default function JobDescriptionPage({
+  onNext,
+  initialText = "",
+  onUploadDocument,
+  documents = [],
+}) {
   const [jdText, setJdText] = useState(initialText);
   const [uploadedFileName, setUploadedFileName] = useState("");
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState(0);
+  const [uploadError, setUploadError] = useState("");
+
+  const BACKEND_URL =
+    import.meta.env.VITE_BACKEND_URL || "http://localhost:8080";
+
+  const jobDocuments = useMemo(
+    () => documents.filter((doc) => doc.type === "JobDescription"),
+    [documents]
+  );
 
   const submit = () => {
     // if user pasted text, use it
@@ -44,29 +59,71 @@ export default function JobDescriptionPage({ onNext, initialText = "" }) {
                 <input
                   type="file"
                   accept=".pdf,.doc,.docx,.txt"
+                  multiple
                   className="hidden"
                   onChange={(e) => {
-                    const f = e.target.files && e.target.files[0];
-                    if (!f) return;
-                    // start simulated upload (same UX as UploadDocuments)
-                    setUploadedFileName(f.name);
-                    setJdText(""); // do not preview uploaded file
+                    const fileList = Array.from(e.target.files || []);
+                    if (!fileList.length) return;
+                    setUploadError("");
+                    setUploadedFileName(
+                      fileList.length === 1
+                        ? fileList[0].name
+                        : `${fileList.length} files selected`
+                    );
+                    setJdText("");
                     setUploading(true);
                     setProgress(0);
 
-                    const interval = setInterval(() => {
-                      setProgress((p) => {
-                        if (p >= 90) {
-                          clearInterval(interval);
-                          setTimeout(() => {
-                            setUploading(false);
-                            setProgress(0);
-                          }, 400);
-                          return 100;
+                    const fd = new FormData();
+                    const userId =
+                      window.localStorage.getItem("user_id") || "1";
+                    fd.append("user_id", userId);
+                    fd.append("file_type", "JobDescription");
+                    fileList.forEach((file) => fd.append("files", file));
+
+                    const url = `${BACKEND_URL.replace(/\/$/, "")}/api/upload`;
+                    axios
+                      .post(url, fd, {
+                        onUploadProgress: (evt) => {
+                          if (evt.lengthComputable) {
+                            const pct = Math.round(
+                              (evt.loaded / evt.total) * 100
+                            );
+                            setProgress(pct);
+                          }
+                        },
+                      })
+                      .then((resp) => {
+                        setUploading(false);
+                        setProgress(0);
+                        const uploaded = (resp.data?.files || []).map(
+                          (item) => ({
+                            name: item.file_name,
+                            type: item.file_type || "JobDescription",
+                            size: "-",
+                            uploadDate: new Date().toLocaleDateString(),
+                          })
+                        );
+                        const uploadedName = uploaded[0]?.name;
+                        if (uploadedName) {
+                          setUploadedFileName(uploadedName);
                         }
-                        return p + 10;
+                        if (onUploadDocument && uploaded.length > 0) {
+                          onUploadDocument(uploaded);
+                        }
+                      })
+                      .catch((err) => {
+                        console.error("Job description upload failed", err);
+                        const msg =
+                          err?.response?.data?.msg ||
+                          err?.response?.data?.error ||
+                          err.message ||
+                          "Upload failed";
+                        setUploadError(msg);
+                        setUploading(false);
+                        setProgress(0);
+                        setUploadedFileName("");
                       });
-                    }, 150);
                   }}
                 />
               </label>
@@ -92,6 +149,9 @@ export default function JobDescriptionPage({ onNext, initialText = "" }) {
                 </div>
               </div>
             )}
+            {uploadError && (
+              <p className="text-sm text-red-600 mt-2">{uploadError}</p>
+            )}
             <p className="text-xs text-gray-500 mt-2">
               Supported: .pdf, .doc, .docx, .txt — text files will be
               auto-loaded when possible.
@@ -110,6 +170,39 @@ export default function JobDescriptionPage({ onNext, initialText = "" }) {
           </button>
         </div>
       </div>
+
+      {jobDocuments.length > 0 && (
+        <div className="bg-white rounded-xl shadow-sm p-6">
+          <h3 className="text-xl font-bold text-gray-900 mb-4">
+            Uploaded Job Descriptions
+          </h3>
+          <div className="space-y-3">
+            {jobDocuments.map((doc, idx) => (
+              <div
+                key={`${doc.name}-${idx}`}
+                className="flex items-center justify-between p-4 bg-gray-50 rounded-lg"
+              >
+                <div className="flex items-center gap-4 flex-1">
+                  <div className="w-12 h-12 bg-indigo-100 rounded-lg flex items-center justify-center">
+                    <FileText className="w-6 h-6 text-indigo-600" />
+                  </div>
+                  <div className="flex-1">
+                    <h4 className="font-semibold text-gray-900">{doc.name}</h4>
+                    <div className="flex items-center gap-4 text-sm text-gray-600 mt-1">
+                      <span>{doc.type}</span>
+                      <span>•</span>
+                      <span>{doc.size}</span>
+                      <span>•</span>
+                      <span>{doc.uploadDate}</span>
+                    </div>
+                  </div>
+                </div>
+                <CheckCircle className="w-6 h-6 text-green-500" />
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
