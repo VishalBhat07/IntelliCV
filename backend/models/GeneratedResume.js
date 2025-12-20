@@ -17,12 +17,17 @@ const GeneratedResume = sequelize.define(
 
     job_id: {
       type: DataTypes.INTEGER,
-      allowNull: false,
+      allowNull: true,
+    },
+
+    resume_html: {
+      type: DataTypes.TEXT,
+      allowNull: true,
     },
 
     generated_text: {
       type: DataTypes.TEXT,
-      allowNull: false,
+      allowNull: true,
     },
 
     match_score: {

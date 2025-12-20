@@ -169,8 +169,13 @@ exports.exportUserDocuments = async (req, res) => {
 
     const docs = await Document.findAll({ where: { user_id } });
     if (!docs || docs.length === 0) {
+      console.log(`⚠️  No documents found in database for user ${user_id}`);
       return res.json({ msg: "No documents found for user", count: 0 });
     }
+
+    console.log(
+      `📦 Found ${docs.length} documents for user ${user_id} in database`
+    );
 
     const baseDir = path.resolve(__dirname, "../../Processing/uploads");
     await fs.promises.mkdir(baseDir, { recursive: true });
@@ -191,8 +196,10 @@ exports.exportUserDocuments = async (req, res) => {
       }
 
       const originalName = path.basename(doc.file_name || "document");
-      const filename = `${doc.id}_${originalName}`;
+      const filename = `${user_id}_${originalName}`;
       const filePath = path.join(typeDir, filename);
+
+      console.log(`📁 Exporting: ${filename} to ${typeDir}`);
 
       await new Promise((resolve, reject) => {
         const downloadStream = bucket.openDownloadStream(objectId);
@@ -206,12 +213,36 @@ exports.exportUserDocuments = async (req, res) => {
       });
 
       savedCount += 1;
+      console.log(`✅ Saved: ${filename}`);
     }
 
     res.json({
       msg: "Documents exported successfully",
       count: savedCount,
       baseDir,
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+// GET /api/upload/list/:userId -> list all documents for a user
+exports.listUserDocuments = async (req, res) => {
+  try {
+    const userId = req.params.userId;
+    if (!userId) return res.status(400).json({ msg: "userId required" });
+
+    const docs = await Document.findAll({ where: { user_id: userId } });
+
+    res.json({
+      count: docs.length,
+      documents: docs.map((d) => ({
+        id: d.id,
+        fileName: d.file_name,
+        fileType: d.file_type,
+        fileSize: d.file_size,
+        uploadDate: d.upload_date,
+      })),
     });
   } catch (err) {
     res.status(500).json({ error: err.message });

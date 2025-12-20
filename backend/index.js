@@ -5,9 +5,17 @@ require("dotenv").config();
 const { sequelize } = require("./config/db.js");
 const authRoutes = require("./routes/authRoutes.js");
 const uploadRoutes = require("./routes/uploadRoutes.js");
+const educationRoutes = require("./routes/educationRoutes.js");
+const jobRoutes = require("./routes/jobRoutes.js");
+const resumeRoutes = require("./routes/resumeRoutes.js");
 const { connect } = require("./config/mongo.js");
 // ensure models are registered so sequelize can sync tables
 require("./models/Document.js");
+require("./models/Education.js");
+require("./models/Certificate.js");
+require("./models/Project.js");
+require("./models/JobDescription.js");
+require("./models/GeneratedResume.js");
 
 const app = express();
 
@@ -22,6 +30,9 @@ app.get("/", (req, res) => {
 // API routes
 app.use("/api/auth", authRoutes);
 app.use("/api/upload", uploadRoutes);
+app.use("/api/education", educationRoutes);
+app.use("/api/job-description", jobRoutes);
+app.use("/api/resume", resumeRoutes);
 
 const PORT = process.env.PORT;
 
