@@ -1,0 +1,72 @@
+/* Plate Editor Styling */
+.slate-editor {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+    sans-serif;
+  line-height: 1.6;
+}
+
+.slate-editor h1 {
+  font-size: 2rem;
+  font-weight: 700;
+  margin-bottom: 0.5rem;
+  color: #1e293b;
+}
+
+.slate-editor h2 {
+  font-size: 1.5rem;
+  font-weight: 600;
+  margin-top: 1.5rem;
+  margin-bottom: 0.75rem;
+  color: #334155;
+}
+
+.slate-editor h3 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin-top: 1rem;
+  margin-bottom: 0.5rem;
+  color: #475569;
+}
+
+.slate-editor p {
+  margin-bottom: 0.75rem;
+  color: #1e293b;
+}
+
+.slate-editor ul,
+.slate-editor ol {
+  margin-left: 1.5rem;
+  margin-bottom: 1rem;
+}
+
+.slate-editor li {
+  margin-bottom: 0.25rem;
+}
+
+.slate-editor strong {
+  font-weight: 600;
+}
+
+.slate-editor em {
+  font-style: italic;
+}
+
+/* Dark mode support */
+.dark .slate-editor h1,
+.dark .slate-editor h2,
+.dark .slate-editor h3,
+.dark .slate-editor p {
+  color: #e2e8f0;
+}
+
+/* Focus state */
+.slate-editor:focus {
+  outline: none;
+}
+
+/* Editable cursor */
+[data-slate-editor] {
+  min-height: 600px;
+  padding: 1rem;
+}
