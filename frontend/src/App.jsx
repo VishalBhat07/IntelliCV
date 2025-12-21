@@ -3,6 +3,7 @@ import axios from "axios";
 import { Toaster, toast } from "react-hot-toast";
 import { CheckCircle } from "lucide-react";
 
+import LandingPage from "./pages/LandingPage";
 import LoginPage from "./pages/LoginPage";
 import RegisterPage from "./pages/Register";
 import EducationForm from "./pages/EducationForm";
@@ -15,6 +16,7 @@ import GeneratedResumePage from "./pages/GeneratedResumePage";
 const STEPS = ["education", "documents", "job", "generate", "preview"];
 
 export default function App() {
+  const [showLanding, setShowLanding] = useState(true);
   const [user, setUser] = useState(null);
   const [authMode, setAuthMode] = useState("login");
   const [currentStep, setCurrentStep] = useState(0);
@@ -36,6 +38,7 @@ export default function App() {
       toast.success("Login successful");
       if (res.status === 200) {
         setUser(res.data.user);
+        setShowLanding(false);
         setCurrentStep(0);
       }
     } catch (err) {
@@ -98,6 +101,7 @@ export default function App() {
     localStorage.removeItem("token");
     localStorage.removeItem("user_id");
     setUser(null);
+    setShowLanding(true);
     setAuthMode("login");
     setCurrentStep(0);
     setEducationData([]);
@@ -105,6 +109,23 @@ export default function App() {
     setJobDescription("");
     setGeneratedResume(null);
   };
+
+  const handleGetStarted = () => {
+    setShowLanding(false);
+    if (!user) {
+      setAuthMode("login");
+    }
+  };
+
+  // Show landing page if user hasn't clicked get started and isn't logged in
+  if (showLanding && !user) {
+    return (
+      <>
+        <Toaster position="top-right" />
+        <LandingPage onGetStarted={handleGetStarted} />
+      </>
+    );
+  }
 
   if (!user) {
     if (authMode === "register") {

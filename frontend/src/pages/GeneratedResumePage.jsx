@@ -9,9 +9,9 @@ export default function GeneratedResumePage({ resume, onBack, onRestart }) {
     setDownloading(true);
     try {
       const html2pdf = (await import("html2pdf.js")).default;
-      
+
       // Get the resume content element
-      const element = document.querySelector('.resume-content');
+      const element = document.querySelector(".resume-content");
       if (!element) {
         throw new Error("Resume content not found");
       }
@@ -19,9 +19,9 @@ export default function GeneratedResumePage({ resume, onBack, onRestart }) {
       const opt = {
         margin: 10,
         filename: `IntelliCV_Resume_${Date.now()}.pdf`,
-        image: { type: 'jpeg', quality: 0.98 },
+        image: { type: "jpeg", quality: 0.98 },
         html2canvas: { scale: 2, useCORS: true },
-        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+        jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
       };
 
       await html2pdf().set(opt).from(element).save();
