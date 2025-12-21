@@ -145,18 +145,18 @@ export default function GenerateResume({
   };
 
   return (
-    <div className="min-h-[600px] flex items-center justify-center">
-      <div className="bg-white rounded-xl shadow-lg p-12 max-w-2xl w-full">
+    <div className="bg-gradient-to-br from-indigo-50 via-purple-50 to-pink-50 min-h-screen flex items-center justify-center py-12 px-4">
+      <div className="bg-white rounded-2xl shadow-2xl p-12 max-w-2xl w-full border-2 border-indigo-100">
         {status === "idle" && (
           <div className="text-center">
             {/* Ready to Generate Icon */}
-            <div className="relative w-32 h-32 mx-auto mb-8">
-              <div className="absolute inset-0 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-full flex items-center justify-center">
-                <Wand2 className="w-16 h-16 text-white" />
+            <div className="relative w-24 h-24 mx-auto mb-8">
+              <div className="absolute inset-0 bg-gradient-to-br from-indigo-600 to-purple-600 rounded-3xl flex items-center justify-center shadow-2xl transform hover:rotate-12 transition-all duration-300">
+                <Wand2 className="w-12 h-12 text-white" />
               </div>
             </div>
 
-            <h2 className="text-3xl font-bold text-gray-900 mb-4">
+            <h2 className="text-4xl font-extrabold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent mb-4">
               Ready to Generate Your Resume
             </h2>
             <p className="text-lg text-gray-600 mb-8">
@@ -165,22 +165,26 @@ export default function GenerateResume({
             </p>
 
             {/* Summary of what will be processed */}
-            <div className="bg-gray-50 rounded-lg p-6 mb-8 text-left">
-              <h3 className="font-semibold text-gray-900 mb-3">
+            <div className="bg-gradient-to-br from-indigo-50 to-purple-50 rounded-2xl p-6 mb-8 text-left border-2 border-indigo-100">
+              <h3 className="font-bold text-gray-900 mb-4 text-xl">
                 What we'll include:
               </h3>
-              <ul className="space-y-2 text-gray-700">
-                <li className="flex items-center gap-2">
-                  <CheckCircle className="w-5 h-5 text-green-600" />
-                  <span>{educationData?.length || 0} Education entries</span>
+              <ul className="space-y-3 text-gray-700">
+                <li className="flex items-center gap-3">
+                  <CheckCircle className="w-6 h-6 text-green-600" />
+                  <span className="text-lg">
+                    {educationData?.length || 0} Education entries
+                  </span>
                 </li>
-                <li className="flex items-center gap-2">
-                  <CheckCircle className="w-5 h-5 text-green-600" />
-                  <span>Uploaded documents (certificates, projects)</span>
+                <li className="flex items-center gap-3">
+                  <CheckCircle className="w-6 h-6 text-green-600" />
+                  <span className="text-lg">
+                    Uploaded documents (certificates, projects)
+                  </span>
                 </li>
-                <li className="flex items-center gap-2">
-                  <CheckCircle className="w-5 h-5 text-green-600" />
-                  <span>
+                <li className="flex items-center gap-3">
+                  <CheckCircle className="w-6 h-6 text-green-600" />
+                  <span className="text-lg">
                     {jobDescription
                       ? "Job description provided"
                       : "General resume (no specific job)"}
@@ -192,7 +196,7 @@ export default function GenerateResume({
             {/* Generate Button */}
             <button
               onClick={handleGenerateResume}
-              className="px-8 py-4 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg font-semibold hover:from-indigo-700 hover:to-purple-700 flex items-center gap-3 mx-auto text-lg shadow-lg transform transition hover:scale-105"
+              className="px-12 py-5 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl font-bold hover:shadow-2xl flex items-center gap-3 mx-auto text-lg transform transition-all duration-300 hover:scale-105"
             >
               <Sparkles className="w-6 h-6" />
               Generate Resume
@@ -201,7 +205,7 @@ export default function GenerateResume({
             {/* Back Button */}
             <button
               onClick={onBack}
-              className="mt-6 px-6 py-3 bg-white text-gray-700 border border-gray-300 rounded-lg font-semibold hover:bg-gray-50 flex items-center gap-2 mx-auto"
+              className="mt-6 px-8 py-3 bg-white text-gray-700 border-2 border-gray-300 rounded-xl font-semibold hover:bg-gray-50 hover:border-indigo-300 flex items-center gap-2 mx-auto transition-all duration-300"
             >
               <ArrowLeft className="w-5 h-5" />
               Back to Job Description
@@ -213,32 +217,34 @@ export default function GenerateResume({
           <div className="text-center">
             {/* Animated Icon */}
             <div className="relative w-32 h-32 mx-auto mb-8">
-              <div className="absolute inset-0 bg-indigo-100 rounded-full animate-ping opacity-75"></div>
-              <div className="absolute inset-0 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-full flex items-center justify-center">
+              <div className="absolute inset-0 bg-indigo-200 rounded-full animate-ping opacity-75"></div>
+              <div className="absolute inset-0 bg-gradient-to-br from-indigo-600 to-purple-600 rounded-full flex items-center justify-center shadow-2xl">
                 <Sparkles className="w-16 h-16 text-white animate-pulse" />
               </div>
             </div>
 
-            <h2 className="text-3xl font-bold text-gray-900 mb-4">
+            <h2 className="text-4xl font-extrabold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent mb-4">
               Generating Your Resume
             </h2>
             <p className="text-lg text-gray-600 mb-8">{message}</p>
 
             {/* Progress Bar */}
-            <div className="w-full bg-gray-200 rounded-full h-3 mb-4">
+            <div className="w-full bg-gray-200 rounded-full h-4 mb-4 shadow-inner">
               <div
-                className="bg-gradient-to-r from-indigo-500 to-purple-600 h-3 rounded-full transition-all duration-500 ease-out"
+                className="bg-gradient-to-r from-indigo-600 to-purple-600 h-4 rounded-full transition-all duration-500 ease-out shadow-md"
                 style={{ width: `${progress}%` }}
               />
             </div>
-            <p className="text-sm text-gray-500">{progress}% Complete</p>
+            <p className="text-base text-gray-600 font-semibold">
+              {progress}% Complete
+            </p>
 
             {/* Processing Steps Animation */}
-            <div className="mt-12 flex justify-center space-x-2">
+            <div className="mt-12 flex justify-center space-x-3">
               {[0, 1, 2, 3].map((i) => (
                 <div
                   key={i}
-                  className="w-3 h-3 bg-indigo-600 rounded-full animate-bounce"
+                  className="w-4 h-4 bg-gradient-to-br from-indigo-600 to-purple-600 rounded-full animate-bounce shadow-lg"
                   style={{
                     animationDelay: `${i * 0.15}s`,
                   }}
@@ -250,26 +256,28 @@ export default function GenerateResume({
 
         {status === "success" && (
           <div className="text-center">
-            <div className="w-24 h-24 mx-auto mb-6 bg-green-100 rounded-full flex items-center justify-center">
-              <CheckCircle className="w-16 h-16 text-green-600" />
+            <div className="w-32 h-32 mx-auto mb-6 bg-gradient-to-br from-green-400 to-emerald-600 rounded-3xl flex items-center justify-center shadow-2xl animate-bounce">
+              <CheckCircle className="w-16 h-16 text-white" />
             </div>
-            <h2 className="text-3xl font-bold text-gray-900 mb-4">Success!</h2>
+            <h2 className="text-4xl font-extrabold bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent mb-4">
+              Success!
+            </h2>
             <p className="text-lg text-gray-600">{message}</p>
           </div>
         )}
 
         {status === "error" && (
           <div className="text-center">
-            <div className="w-24 h-24 mx-auto mb-6 bg-red-100 rounded-full flex items-center justify-center">
-              <FileText className="w-16 h-16 text-red-600" />
+            <div className="w-32 h-32 mx-auto mb-6 bg-gradient-to-br from-red-400 to-red-600 rounded-3xl flex items-center justify-center shadow-2xl">
+              <FileText className="w-16 h-16 text-white" />
             </div>
-            <h2 className="text-3xl font-bold text-gray-900 mb-4">
+            <h2 className="text-4xl font-extrabold bg-gradient-to-r from-red-600 to-red-800 bg-clip-text text-transparent mb-4">
               Oops! Something went wrong
             </h2>
             <p className="text-lg text-gray-600 mb-8">{message}</p>
             <button
               onClick={onBack}
-              className="px-6 py-3 bg-indigo-600 text-white rounded-lg font-semibold hover:bg-indigo-700 flex items-center gap-2 mx-auto"
+              className="px-10 py-4 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl font-bold hover:shadow-2xl flex items-center gap-2 mx-auto transition-all duration-300 transform hover:scale-105"
             >
               <ArrowLeft className="w-5 h-5" />
               Go Back
