@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
+import axios from "axios";
 import {
   Download,
   RefreshCw,
@@ -22,9 +23,10 @@ import {
 export default function GeneratedResumePage({ resume, onBack, onRestart }) {
   const [downloading, setDownloading] = useState(false);
   const [editorContent, setEditorContent] = useState("");
-  const [isExporting, setIsExporting] = useState(false);
   const editorRef = useRef(null);
   const selectionRef = useRef(null);
+  const BACKEND_URL =
+    import.meta.env.VITE_BACKEND_URL || "http://localhost:8080";
 
   const snapshotSelection = () => {
     const selection = window.getSelection();
@@ -139,34 +141,54 @@ export default function GeneratedResumePage({ resume, onBack, onRestart }) {
     normalizeListStyles();
   };
 
-  // Generate PDF using html2pdf
-  const generatePDF = async () => {
+  const downloadPDF = async () => {
+    if (!editorRef.current) {
+      alert("Resume content not found");
+      return;
+    }
+
+    const html = editorRef.current.innerHTML;
+    if (!html || !html.trim()) {
+      alert("Resume content is empty");
+      return;
+    }
+
+    const url = `${BACKEND_URL.replace(/\/$/, "")}/api/export-pdf`;
+    const fileName = `IntelliCV_Resume_${Date.now()}.pdf`;
+
     setDownloading(true);
-    setIsExporting(true);
+
     try {
       await waitForNextFrame();
-      const html2pdf = (await import("html2pdf.js")).default;
 
-      // Export the edited resume content
-      const element = editorRef.current;
-      if (!element) {
-        throw new Error("Resume content not found");
-      }
+      const response = await axios.post(
+        url,
+        { html, fileName },
+        {
+          responseType: "blob",
+          headers: {
+            "Content-Type": "application/json",
+          },
+        }
+      );
 
-      const opt = {
-        margin: 10,
-        filename: `IntelliCV_Resume_${Date.now()}.pdf`,
-        image: { type: "jpeg", quality: 0.98 },
-        html2canvas: { scale: 2, useCORS: true },
-        jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
-      };
+      const blob = new Blob([response.data], { type: "application/pdf" });
+      const blobUrl = window.URL.createObjectURL(blob);
 
-      await html2pdf().set(opt).from(element).save();
+      const link = document.createElement("a");
+      link.href = blobUrl;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      window.setTimeout(() => {
+        window.URL.revokeObjectURL(blobUrl);
+      }, 4000);
     } catch (err) {
-      console.error("PDF generation error:", err);
+      console.error("PDF download error:", err);
       alert("Failed to generate PDF. Please try again.");
     } finally {
-      setIsExporting(false);
       setDownloading(false);
     }
   };
@@ -187,7 +209,7 @@ export default function GeneratedResumePage({ resume, onBack, onRestart }) {
           </div>
           <div className="flex items-center space-x-3">
             <button
-              onClick={generatePDF}
+              onClick={downloadPDF}
               disabled={downloading}
               className="px-6 py-3 bg-green-600 text-white rounded-lg font-semibold hover:bg-green-700 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
             >
@@ -325,11 +347,7 @@ export default function GeneratedResumePage({ resume, onBack, onRestart }) {
                 <div className="border border-gray-200 rounded-lg">
                   <div
                     ref={editorRef}
-                    className={`resume-content prose prose-sm max-w-none focus:outline-none min-h-[600px] p-6 w-full ${
-                      isExporting
-                        ? "max-h-none overflow-visible"
-                        : "max-h-[600px] overflow-y-auto"
-                    }`}
+                    className="resume-content prose prose-sm max-w-none focus:outline-none min-h-[600px] p-6 w-full max-h-[600px] overflow-y-auto"
                     contentEditable
                     suppressContentEditableWarning
                     onInput={handleInput}
