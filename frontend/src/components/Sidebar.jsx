@@ -29,18 +29,18 @@ export default function Sidebar({
     <aside
       className={`${
         collapsed ? "w-20" : "w-64"
-      } bg-white shadow-lg flex flex-col transition-all`}
+      } bg-gradient-to-b from-gray-900 to-black shadow-sm border-r border-white/10 flex flex-col transition-all`}
     >
-      <div className="p-4 border-b flex items-center gap-3">
+      <div className="p-4 border-b border-white/10 flex items-center gap-3">
         <div className="shrink-0">
-          <div className="w-10 h-10 bg-indigo-600 rounded-lg flex items-center justify-center">
+          <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-purple-600 rounded-lg flex items-center justify-center">
             <FileText className="w-5 h-5 text-white" />
           </div>
         </div>
         {!collapsed && (
           <div>
-            <h1 className="text-xl font-bold">IntelliCV</h1>
-            <p className="text-xs text-gray-600">Smart Resume Builder</p>
+            <h1 className="text-xl font-bold text-white">IntelliCV</h1>
+            <p className="text-xs text-gray-400">Resume Builder</p>
           </div>
         )}
       </div>
@@ -57,8 +57,8 @@ export default function Sidebar({
               onClick={() => setCurrent(it.id)}
               className={`w-full text-left px-4 py-3 rounded-lg font-medium transition-colors flex items-center gap-3 ${
                 active
-                  ? "bg-indigo-50 text-indigo-600"
-                  : "text-gray-700 hover:bg-gray-100"
+                  ? "bg-blue-600 text-white"
+                  : "text-gray-300 hover:bg-white/10 hover:text-white"
               }`}
             >
               <Icon className="w-4 h-4" />
@@ -68,17 +68,17 @@ export default function Sidebar({
         })}
       </nav>
 
-      <div className="p-3 border-t">
+      <div className="p-3 border-t border-white/10">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-indigo-100 rounded-full flex items-center justify-center">
-            <span className="text-indigo-600 font-semibold">
-              {collapsed ? initials : name}
+          <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-purple-600 rounded-full flex items-center justify-center">
+            <span className="text-white font-semibold text-sm">
+              {collapsed ? initials : initials}
             </span>
           </div>
           {!collapsed && (
             <div>
-              <p className="font-semibold text-gray-900">{name}</p>
-              <p className="text-xs text-gray-600">{user.email}</p>
+              <p className="font-semibold text-white text-sm">{name}</p>
+              <p className="text-xs text-gray-400 truncate">{user.email}</p>
             </div>
           )}
         </div>

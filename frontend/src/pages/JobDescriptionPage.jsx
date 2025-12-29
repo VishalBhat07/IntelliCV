@@ -91,11 +91,11 @@ export default function JobDescriptionPage({
   };
 
   return (
-    <div className="bg-gradient-to-br from-indigo-50 via-purple-50 to-pink-50 min-h-screen py-12 px-4">
+    <div className="bg-gradient-to-b from-black via-gray-900 to-black min-h-screen py-12 px-4">
       <div className="max-w-4xl mx-auto space-y-6">
-        <div className="bg-white rounded-2xl shadow-2xl p-8 border-2 border-indigo-100">
+        <div className="bg-gradient-to-br from-white/5 to-white/[0.02] rounded-2xl shadow-2xl p-8 border border-white/10 backdrop-blur-sm">
           <div className="flex items-center mb-8">
-            <div className="w-16 h-16 bg-gradient-to-br from-indigo-600 to-purple-600 rounded-2xl flex items-center justify-center shadow-lg mr-4">
+            <div className="w-16 h-16 bg-gradient-to-br from-blue-600 to-purple-600 rounded-2xl flex items-center justify-center shadow-lg mr-4">
               <Briefcase className="w-8 h-8 text-white" />
             </div>
             <div>
@@ -110,32 +110,34 @@ export default function JobDescriptionPage({
 
           <div className="space-y-6">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-gray-300 mb-2">
                 Paste the job description below
               </label>
               <textarea
                 value={jdText}
                 onChange={(e) => setJdText(e.target.value)}
-                className="w-full h-64 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent resize-none"
+                className="w-full h-64 px-4 py-3 bg-white/10 border border-white/20 rounded-lg focus:ring-2 focus:ring-blue-400/50 focus:border-transparent resize-none text-white placeholder-gray-400"
                 placeholder="Paste the complete job description here...&#10;&#10;Example:&#10;We are looking for a Software Engineer with experience in...&#10;• 3+ years of experience&#10;• Strong knowledge of JavaScript, React&#10;• Experience with Node.js and databases"
               />
             </div>
 
             <div className="relative">
               <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-gray-300"></div>
+                <div className="w-full border-t border-white/20"></div>
               </div>
               <div className="relative flex justify-center text-sm">
-                <span className="px-4 bg-white text-gray-500">OR</span>
+                <span className="px-4 bg-gradient-to-b from-black via-gray-900 to-black text-gray-400">
+                  OR
+                </span>
               </div>
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-gray-300 mb-2">
                 Upload a job description file
               </label>
               <div className="flex items-center gap-3">
-                <label className="flex-1 flex items-center justify-center gap-2 px-6 py-3 bg-gray-100 border-2 border-dashed border-gray-300 text-gray-700 rounded-lg cursor-pointer hover:bg-gray-200 font-medium">
+                <label className="flex-1 flex items-center justify-center gap-2 px-6 py-3 bg-white/5 border-2 border-dashed border-white/20 text-gray-300 rounded-lg cursor-pointer hover:bg-white/10 hover:border-white/30 font-medium">
                   <Upload className="w-5 h-5" />
                   {uploadedFileName || "Choose File"}
                   <input
@@ -148,18 +150,18 @@ export default function JobDescriptionPage({
                 </label>
               </div>
               {uploading && (
-                <div className="mt-3 bg-indigo-50 rounded-lg p-3">
+                <div className="mt-3 bg-white/5 border border-white/10 rounded-lg p-3">
                   <div className="flex items-center justify-between mb-2">
-                    <span className="text-sm font-medium text-indigo-900">
+                    <span className="text-sm font-medium text-white">
                       Uploading...
                     </span>
-                    <span className="text-sm font-medium text-indigo-900">
+                    <span className="text-sm font-medium text-white">
                       {progress}%
                     </span>
                   </div>
-                  <div className="w-full bg-indigo-200 rounded-full h-2">
+                  <div className="w-full bg-white/10 rounded-full h-2">
                     <div
-                      className="bg-indigo-600 h-2 rounded-full transition-all duration-300"
+                      className="bg-blue-600 h-2 rounded-full transition-all duration-300"
                       style={{ width: `${progress}%` }}
                     />
                   </div>
@@ -173,7 +175,7 @@ export default function JobDescriptionPage({
         <div className="flex justify-between">
           <button
             onClick={onBack}
-            className="px-6 py-3 bg-white text-gray-700 border border-gray-300 rounded-lg font-semibold hover:bg-gray-50 flex items-center gap-2"
+            className="px-6 py-3 bg-white/10 text-white border border-white/20 rounded-lg font-semibold hover:bg-white/20 flex items-center gap-2"
           >
             <ArrowLeft className="w-5 h-5" />
             Back
@@ -181,7 +183,7 @@ export default function JobDescriptionPage({
           <button
             onClick={handleSubmit}
             disabled={uploading}
-            className="px-6 py-3 bg-indigo-600 text-white rounded-lg font-semibold hover:bg-indigo-700 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="px-6 py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             Continue
             <ArrowRight className="w-5 h-5" />

@@ -196,15 +196,17 @@ export default function GeneratedResumePage({ resume, onBack, onRestart }) {
   return (
     <div className="space-y-6">
       {/* Header Actions */}
-      <div className="bg-white rounded-xl shadow-lg p-6">
+      <div className="bg-gradient-to-br from-white/5 to-white/[0.02] border border-white/10 backdrop-blur-sm rounded-xl shadow-lg p-6">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-3">
-            <FileText className="w-8 h-8 text-indigo-600" />
+            <div className="w-12 h-12 bg-gradient-to-br from-blue-600 to-purple-600 rounded-lg flex items-center justify-center">
+              <FileText className="w-6 h-6 text-white" />
+            </div>
             <div>
-              <h2 className="text-2xl font-bold text-gray-900">
+              <h2 className="text-2xl font-bold text-white">
                 Your Resume is Ready!
               </h2>
-              <p className="text-gray-600">Preview and download your resume</p>
+              <p className="text-gray-400">Preview and download your resume</p>
             </div>
           </div>
           <div className="flex items-center space-x-3">
@@ -218,7 +220,7 @@ export default function GeneratedResumePage({ resume, onBack, onRestart }) {
             </button>
             <button
               onClick={onRestart}
-              className="px-6 py-3 bg-indigo-600 text-white rounded-lg font-semibold hover:bg-indigo-700 flex items-center gap-2"
+              className="px-6 py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 flex items-center gap-2"
             >
               <RefreshCw className="w-5 h-5" />
               Create New
@@ -228,17 +230,17 @@ export default function GeneratedResumePage({ resume, onBack, onRestart }) {
       </div>
 
       {/* Resume Preview */}
-      <div className="bg-white rounded-xl shadow-lg p-8">
+      <div className="bg-gradient-to-br from-white/5 to-white/[0.02] border border-white/10 backdrop-blur-sm rounded-xl shadow-lg p-8">
         <div className="max-w-6xl mx-auto ">
           {/* Resume Content Preview */}
-          <div className="bg-white border-2 border-gray-200 rounded-lg p-12 shadow-inner min-h-[800px]">
+          <div className="bg-gradient-to-br from-white/[0.03] to-white/[0.01] border border-white/10 rounded-lg p-12 shadow-inner min-h-[800px]">
             {editorContent ? (
               <div className="space-y-6">
-                <div className="flex items-center gap-2 border border-gray-200 rounded-lg bg-gray-50 p-3 overflow-x-auto flex-nowrap whitespace-nowrap sticky top-0 z-10">
+                <div className="flex items-center gap-2 border border-white/20 rounded-lg bg-white/5 backdrop-blur-sm p-3 overflow-x-auto flex-nowrap whitespace-nowrap sticky top-0 z-10">
                   <button
                     type="button"
                     onClick={() => applyFormat("undo")}
-                    className="px-3 py-2 bg-white border border-gray-200 rounded-md hover:bg-gray-100"
+                    className="px-3 py-2 bg-white/10 border border-white/20 rounded-md hover:bg-white/20 text-white"
                     title="Undo"
                   >
                     <Undo2 className="w-4 h-4" />
@@ -246,16 +248,16 @@ export default function GeneratedResumePage({ resume, onBack, onRestart }) {
                   <button
                     type="button"
                     onClick={() => applyFormat("redo")}
-                    className="px-3 py-2 bg-white border border-gray-200 rounded-md hover:bg-gray-100"
+                    className="px-3 py-2 bg-white/10 border border-white/20 rounded-md hover:bg-white/20 text-white"
                     title="Redo"
                   >
                     <Redo2 className="w-4 h-4" />
                   </button>
-                  <span className="h-6 w-px bg-gray-300" />
+                  <span className="h-6 w-px bg-white/20" />
                   <button
                     type="button"
                     onClick={() => applyFormat("bold")}
-                    className="px-3 py-2 bg-white border border-gray-200 rounded-md hover:bg-gray-100"
+                    className="px-3 py-2 bg-white/10 border border-white/20 rounded-md hover:bg-white/20 text-white"
                     title="Bold"
                   >
                     <Bold className="w-4 h-4" />
@@ -263,7 +265,7 @@ export default function GeneratedResumePage({ resume, onBack, onRestart }) {
                   <button
                     type="button"
                     onClick={() => applyFormat("italic")}
-                    className="px-3 py-2 bg-white border border-gray-200 rounded-md hover:bg-gray-100"
+                    className="px-3 py-2 bg-white/10 border border-white/20 rounded-md hover:bg-white/20 text-white"
                     title="Italic"
                   >
                     <Italic className="w-4 h-4" />
@@ -271,7 +273,7 @@ export default function GeneratedResumePage({ resume, onBack, onRestart }) {
                   <button
                     type="button"
                     onClick={() => applyFormat("underline")}
-                    className="px-3 py-2 bg-white border border-gray-200 rounded-md hover:bg-gray-100"
+                    className="px-3 py-2 bg-white/10 border border-white/20 rounded-md hover:bg-white/20 text-white"
                     title="Underline"
                   >
                     <Underline className="w-4 h-4" />
@@ -279,7 +281,7 @@ export default function GeneratedResumePage({ resume, onBack, onRestart }) {
                   <button
                     type="button"
                     onClick={() => applyFormat("strikeThrough")}
-                    className="px-3 py-2 bg-white border border-gray-200 rounded-md hover:bg-gray-100"
+                    className="px-3 py-2 bg-white/10 border border-white/20 rounded-md hover:bg-white/20 text-white"
                     title="Strikethrough"
                   >
                     <Strikethrough className="w-4 h-4" />
@@ -287,7 +289,7 @@ export default function GeneratedResumePage({ resume, onBack, onRestart }) {
                   <button
                     type="button"
                     onClick={handleLink}
-                    className="px-3 py-2 bg-white border border-gray-200 rounded-md hover:bg-gray-100"
+                    className="px-3 py-2 bg-white/10 border border-white/20 rounded-md hover:bg-white/20 text-white"
                     title="Add link"
                   >
                     <Link className="w-4 h-4" />
@@ -295,16 +297,16 @@ export default function GeneratedResumePage({ resume, onBack, onRestart }) {
                   <button
                     type="button"
                     onClick={() => applyFormat("unlink")}
-                    className="px-3 py-2 bg-white border border-gray-200 rounded-md hover:bg-gray-100"
+                    className="px-3 py-2 bg-white/10 border border-white/20 rounded-md hover:bg-white/20 text-white"
                     title="Remove link"
                   >
                     <Eraser className="w-4 h-4" />
                   </button>
-                  <span className="h-6 w-px bg-gray-300" />
+                  <span className="h-6 w-px bg-white/20" />
                   <button
                     type="button"
                     onClick={() => applyFormat("insertUnorderedList")}
-                    className="px-3 py-2 bg-white border border-gray-200 rounded-md hover:bg-gray-100"
+                    className="px-3 py-2 bg-white/10 border border-white/20 rounded-md hover:bg-white/20 text-white"
                     title="Bullet list"
                   >
                     <List className="w-4 h-4" />
@@ -312,16 +314,16 @@ export default function GeneratedResumePage({ resume, onBack, onRestart }) {
                   <button
                     type="button"
                     onClick={() => applyFormat("insertOrderedList")}
-                    className="px-3 py-2 bg-white border border-gray-200 rounded-md hover:bg-gray-100"
+                    className="px-3 py-2 bg-white/10 border border-white/20 rounded-md hover:bg-white/20 text-white"
                     title="Numbered list"
                   >
                     <ListOrdered className="w-4 h-4" />
                   </button>
-                  <span className="h-6 w-px bg-gray-300" />
+                  <span className="h-6 w-px bg-white/20" />
                   <button
                     type="button"
                     onClick={() => applyFormat("justifyLeft")}
-                    className="px-3 py-2 bg-white border border-gray-200 rounded-md hover:bg-gray-100"
+                    className="px-3 py-2 bg-white/10 border border-white/20 rounded-md hover:bg-white/20 text-white"
                     title="Align left"
                   >
                     <AlignLeft className="w-4 h-4" />
@@ -329,7 +331,7 @@ export default function GeneratedResumePage({ resume, onBack, onRestart }) {
                   <button
                     type="button"
                     onClick={() => applyFormat("justifyCenter")}
-                    className="px-3 py-2 bg-white border border-gray-200 rounded-md hover:bg-gray-100"
+                    className="px-3 py-2 bg-white/10 border border-white/20 rounded-md hover:bg-white/20 text-white"
                     title="Align center"
                   >
                     <AlignCenter className="w-4 h-4" />
@@ -337,17 +339,17 @@ export default function GeneratedResumePage({ resume, onBack, onRestart }) {
                   <button
                     type="button"
                     onClick={() => applyFormat("justifyRight")}
-                    className="px-3 py-2 bg-white border border-gray-200 rounded-md hover:bg-gray-100"
+                    className="px-3 py-2 bg-white/10 border border-white/20 rounded-md hover:bg-white/20 text-white"
                     title="Align right"
                   >
                     <AlignRight className="w-4 h-4" />
                   </button>
                 </div>
 
-                <div className="border border-gray-200 rounded-lg">
+                <div className="border border-white/20 rounded-lg bg-white shadow-lg">
                   <div
                     ref={editorRef}
-                    className="resume-content prose prose-sm max-w-none focus:outline-none min-h-[600px] p-6 w-full max-h-[600px] overflow-y-auto"
+                    className="resume-content prose prose-sm max-w-none focus:outline-none min-h-[600px] p-6 w-full max-h-[600px] overflow-y-auto text-gray-900"
                     contentEditable
                     suppressContentEditableWarning
                     onInput={handleInput}
@@ -362,8 +364,8 @@ export default function GeneratedResumePage({ resume, onBack, onRestart }) {
                 </div>
               </div>
             ) : (
-              <div className="text-center text-gray-500">
-                <FileText className="w-16 h-16 mx-auto mb-4 text-gray-400" />
+              <div className="text-center text-gray-400">
+                <FileText className="w-16 h-16 mx-auto mb-4 text-gray-500" />
                 <p>No resume content available</p>
               </div>
             )}
@@ -375,7 +377,7 @@ export default function GeneratedResumePage({ resume, onBack, onRestart }) {
       <div className="flex justify-between">
         <button
           onClick={onBack}
-          className="px-6 py-3 bg-white text-gray-700 border border-gray-300 rounded-lg font-semibold hover:bg-gray-50 flex items-center gap-2"
+          className="px-6 py-3 bg-white/10 text-white border border-white/20 rounded-lg font-semibold hover:bg-white/20 flex items-center gap-2"
         >
           <ArrowLeft className="w-5 h-5" />
           Back to Generation

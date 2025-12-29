@@ -66,26 +66,24 @@ export default function MobileSidebar({ isOpen, onClose, onGetStarted }) {
 
       {/* Sidebar */}
       <div
-        className={`fixed top-0 right-0 h-full w-80 bg-white shadow-2xl z-50 transform transition-transform duration-300 ease-in-out md:hidden ${
+        className={`fixed top-0 right-0 h-full w-80 bg-gradient-to-b from-gray-900 to-black shadow-2xl z-50 transform transition-transform duration-300 ease-in-out md:hidden border-l border-white/10 ${
           isOpen ? "translate-x-0" : "translate-x-full"
         }`}
       >
         {/* Sidebar Header */}
-        <div className="flex items-center justify-between p-6 border-b border-gray-200 bg-gradient-to-r from-indigo-50 to-purple-50">
+        <div className="flex items-center justify-between p-6 border-b border-white/10">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-gradient-to-br from-indigo-600 to-purple-600 rounded-xl flex items-center justify-center shadow-lg">
+            <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-purple-600 rounded-xl flex items-center justify-center shadow-lg">
               <Sparkles className="w-5 h-5 text-white" />
             </div>
-            <span className="text-xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
-              IntelliCV
-            </span>
+            <span className="text-xl font-bold text-white">IntelliCV</span>
           </div>
           <button
             onClick={onClose}
-            className="p-2 rounded-lg hover:bg-white/80 transition-colors"
+            className="p-2 rounded-lg hover:bg-white/10 transition-colors"
             aria-label="Close menu"
           >
-            <X className="w-6 h-6 text-gray-600" />
+            <X className="w-6 h-6 text-gray-300" />
           </button>
         </div>
 
@@ -95,9 +93,9 @@ export default function MobileSidebar({ isOpen, onClose, onGetStarted }) {
             <button
               key={index}
               onClick={item.action}
-              className="w-full flex items-center gap-4 px-4 py-3.5 text-gray-700 hover:bg-gradient-to-r hover:from-indigo-50 hover:to-purple-50 hover:text-indigo-600 rounded-xl font-medium transition-all duration-200 group"
+              className="w-full flex items-center gap-4 px-4 py-3.5 text-gray-300 hover:bg-white/10 hover:text-white rounded-xl font-medium transition-all duration-200 group"
             >
-              <span className="text-gray-500 group-hover:text-indigo-600 transition-colors">
+              <span className="text-gray-400 group-hover:text-white transition-colors">
                 {item.icon}
               </span>
               <span>{item.label}</span>
@@ -106,18 +104,18 @@ export default function MobileSidebar({ isOpen, onClose, onGetStarted }) {
         </div>
 
         {/* CTA Section */}
-        <div className="absolute bottom-0 left-0 right-0 p-6 border-t border-gray-200 bg-gradient-to-r from-indigo-50 to-purple-50">
+        <div className="absolute bottom-0 left-0 right-0 p-6 border-t border-white/10 bg-gradient-to-r from-black/50 to-gray-900/50">
           <button
             onClick={() => {
               onGetStarted();
               onClose();
             }}
-            className="w-full px-6 py-4 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl font-semibold text-center shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200 flex items-center justify-center gap-2 group"
+            className="w-full px-6 py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-semibold text-center shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200 flex items-center justify-center gap-2 group"
           >
             Get Started
             <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
           </button>
-          <p className="text-xs text-gray-500 text-center mt-3">
+          <p className="text-xs text-gray-400 text-center mt-3">
             Free forever. No credit card needed.
           </p>
         </div>

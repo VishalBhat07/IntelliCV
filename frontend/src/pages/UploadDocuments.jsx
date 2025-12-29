@@ -90,11 +90,11 @@ export default function UploadDocuments({
   };
 
   return (
-    <div className="bg-gradient-to-br from-indigo-50 via-purple-50 to-pink-50 min-h-screen py-12 px-4">
+    <div className="bg-gradient-to-b from-black via-gray-900 to-black min-h-screen py-12 px-4">
       <div className="max-w-4xl mx-auto space-y-6">
-        <div className="bg-white rounded-2xl shadow-2xl p-8 border-2 border-indigo-100">
+        <div className="bg-gradient-to-br from-white/5 to-white/[0.02] rounded-2xl shadow-2xl p-8 border border-white/10 backdrop-blur-sm">
           <div className="flex items-center mb-8">
-            <div className="w-16 h-16 bg-gradient-to-br from-indigo-600 to-purple-600 rounded-2xl flex items-center justify-center shadow-lg mr-4">
+            <div className="w-16 h-16 bg-gradient-to-br from-blue-600 to-purple-600 rounded-2xl flex items-center justify-center shadow-lg mr-4">
               <Upload className="w-8 h-8 text-white" />
             </div>
             <div>
@@ -110,17 +110,17 @@ export default function UploadDocuments({
 
           <div className="space-y-6">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-gray-300 mb-2">
                 Select document type
               </label>
               <select
                 value={fileType}
                 onChange={(e) => setFileType(e.target.value)}
                 disabled={uploading}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-lg focus:ring-2 focus:ring-blue-400/50 focus:border-transparent text-white"
               >
                 {FILE_TYPES.map((type) => (
-                  <option key={type} value={type}>
+                  <option key={type} value={type} className="bg-gray-900">
                     {type}
                   </option>
                 ))}
@@ -135,20 +135,20 @@ export default function UploadDocuments({
               onDrop={onDrop}
               className={`border-2 border-dashed rounded-2xl p-12 text-center transition-all duration-300 ${
                 dragActive
-                  ? "border-indigo-500 bg-gradient-to-br from-indigo-50 to-purple-50 scale-105"
-                  : "border-indigo-300 bg-gradient-to-br from-gray-50 to-indigo-50"
+                  ? "border-blue-400 bg-blue-500/10 scale-105"
+                  : "border-white/20 bg-white/5"
               }`}
             >
               <Upload
                 className={`w-16 h-16 mx-auto mb-4 ${
-                  dragActive ? "text-indigo-600" : "text-gray-400"
+                  dragActive ? "text-blue-400" : "text-gray-400"
                 }`}
               />
-              <p className="text-lg font-medium text-gray-700 mb-2">
+              <p className="text-lg font-medium text-white mb-2">
                 Drag & drop files here
               </p>
-              <p className="text-sm text-gray-500 mb-4">or</p>
-              <label className="inline-flex items-center px-6 py-3 bg-indigo-600 text-white rounded-lg cursor-pointer hover:bg-indigo-700 font-medium">
+              <p className="text-sm text-gray-400 mb-4">or</p>
+              <label className="inline-flex items-center px-6 py-3 bg-blue-600 text-white rounded-lg cursor-pointer hover:bg-blue-700 font-medium">
                 Browse Files
                 <input
                   type="file"
@@ -165,18 +165,18 @@ export default function UploadDocuments({
 
             {/* Upload Progress */}
             {uploading && (
-              <div className="bg-indigo-50 rounded-lg p-4">
+              <div className="bg-white/5 border border-white/10 rounded-lg p-4">
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm font-medium text-indigo-900">
+                  <span className="text-sm font-medium text-white">
                     Uploading...
                   </span>
-                  <span className="text-sm font-medium text-indigo-900">
+                  <span className="text-sm font-medium text-white">
                     {progress}%
                   </span>
                 </div>
-                <div className="w-full bg-indigo-200 rounded-full h-2">
+                <div className="w-full bg-white/10 rounded-full h-2">
                   <div
-                    className="bg-indigo-600 h-2 rounded-full transition-all duration-300"
+                    className="bg-blue-600 h-2 rounded-full transition-all duration-300"
                     style={{ width: `${progress}%` }}
                   />
                 </div>
@@ -187,26 +187,26 @@ export default function UploadDocuments({
 
         {/* Uploaded Documents List */}
         {documents.length > 0 && (
-          <div className="bg-white rounded-xl shadow-lg p-8">
-            <h3 className="text-xl font-bold text-gray-900 mb-4">
+          <div className="bg-gradient-to-br from-white/5 to-white/[0.02] border border-white/10 backdrop-blur-sm rounded-xl shadow-lg p-8">
+            <h3 className="text-xl font-bold text-white mb-4">
               Uploaded Documents ({documents.length})
             </h3>
             <div className="space-y-3">
               {documents.map((doc, idx) => (
                 <div
                   key={idx}
-                  className="flex items-center justify-between p-4 bg-gray-50 rounded-lg border border-gray-200"
+                  className="flex items-center justify-between p-4 bg-white/5 rounded-lg border border-white/10"
                 >
                   <div className="flex items-center space-x-3">
-                    <FileText className="w-5 h-5 text-indigo-600" />
+                    <FileText className="w-5 h-5 text-blue-400" />
                     <div>
-                      <p className="font-medium text-gray-900">{doc.name}</p>
-                      <p className="text-sm text-gray-500">
+                      <p className="font-medium text-white">{doc.name}</p>
+                      <p className="text-sm text-gray-400">
                         {doc.type} • {doc.uploadDate}
                       </p>
                     </div>
                   </div>
-                  <CheckCircle className="w-5 h-5 text-green-500" />
+                  <CheckCircle className="w-5 h-5 text-green-400" />
                 </div>
               ))}
             </div>
@@ -217,14 +217,14 @@ export default function UploadDocuments({
         <div className="flex justify-between">
           <button
             onClick={onBack}
-            className="px-6 py-3 bg-white text-gray-700 border border-gray-300 rounded-lg font-semibold hover:bg-gray-50 flex items-center gap-2"
+            className="px-6 py-3 bg-white/10 text-white border border-white/20 rounded-lg font-semibold hover:bg-white/20 flex items-center gap-2"
           >
             <ArrowLeft className="w-5 h-5" />
             Back
           </button>
           <button
             onClick={onNext}
-            className="px-6 py-3 bg-indigo-600 text-white rounded-lg font-semibold hover:bg-indigo-700 flex items-center gap-2"
+            className="px-6 py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 flex items-center gap-2"
           >
             Continue
             <ArrowRight className="w-5 h-5" />

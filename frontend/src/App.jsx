@@ -161,26 +161,26 @@ export default function App() {
   ];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-purple-50 to-pink-50">
+    <div className="min-h-screen bg-gradient-to-b from-black via-gray-900 to-black">
       <Toaster position="top-right" />
 
       {/* Header */}
-      <header className="bg-white shadow-sm border-b border-gray-200">
+      <header className="bg-gradient-to-r from-gray-900 to-black shadow-sm border-b border-white/10">
         <div className="max-w-7xl mx-auto px-4 py-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center">
             <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 bg-indigo-600 rounded-lg flex items-center justify-center">
+              <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-purple-600 rounded-lg flex items-center justify-center">
                 <span className="text-white font-bold text-xl">IC</span>
               </div>
-              <h1 className="text-2xl font-bold text-gray-900">IntelliCV</h1>
+              <h1 className="text-2xl font-bold text-white">IntelliCV</h1>
             </div>
             <div className="flex items-center space-x-4">
-              <span className="text-gray-600">
+              <span className="text-gray-300">
                 Welcome, {user.first_name || "User"}
               </span>
               <button
                 onClick={handleLogout}
-                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
+                className="px-4 py-2 text-sm font-medium text-white bg-white/10 border border-white/20 rounded-lg hover:bg-white/20"
               >
                 Logout
               </button>
@@ -192,7 +192,7 @@ export default function App() {
       <main className="max-w-6xl mx-auto px-4 py-8 sm:px-6 lg:px-8">
         {/* Progress Stepper */}
         {currentStep < 4 && (
-          <div className="bg-white rounded-xl shadow-sm p-6 mb-8">
+          <div className="bg-gradient-to-br from-white/5 to-white/[0.02] border border-white/10 backdrop-blur-sm rounded-xl shadow-sm p-6 mb-8">
             <div className="flex items-center justify-between">
               {stepNames.slice(0, 4).map((name, idx) => (
                 <React.Fragment key={idx}>
@@ -202,8 +202,8 @@ export default function App() {
                         idx < currentStep
                           ? "bg-green-500 text-white"
                           : idx === currentStep
-                          ? "bg-indigo-600 text-white"
-                          : "bg-gray-200 text-gray-500"
+                          ? "bg-blue-600 text-white"
+                          : "bg-white/10 text-gray-400"
                       }`}
                     >
                       {idx < currentStep ? (
@@ -214,7 +214,7 @@ export default function App() {
                     </div>
                     <span
                       className={`mt-2 text-sm font-medium ${
-                        idx <= currentStep ? "text-gray-900" : "text-gray-500"
+                        idx <= currentStep ? "text-white" : "text-gray-400"
                       }`}
                     >
                       {name}
@@ -223,7 +223,7 @@ export default function App() {
                   {idx < stepNames.length - 2 && (
                     <div
                       className={`flex-1 h-1 mx-4 ${
-                        idx < currentStep ? "bg-green-500" : "bg-gray-200"
+                        idx < currentStep ? "bg-green-500" : "bg-white/10"
                       }`}
                     />
                   )}

@@ -1,86 +1,23 @@
 @import "tailwindcss";
 
-/* Custom animations for hero section */
-@keyframes blob {
-  0% {
-    transform: translate(0px, 0px) scale(1);
-  }
-  33% {
-    transform: translate(30px, -50px) scale(1.1);
-  }
-  66% {
-    transform: translate(-20px, 20px) scale(0.9);
-  }
-  100% {
-    transform: translate(0px, 0px) scale(1);
-  }
+/* Navy Whisper Theme - Classic & Elegant */
+:root {
+  --primary: #1e3a5f;
+  --secondary: #4a5b78;
+  --accent: #6b7c98;
+  --background: #f7f9fb;
+  --text: #2c3e50;
 }
 
-@keyframes fade-in-up {
-  0% {
+@keyframes fadeIn {
+  from {
     opacity: 0;
-    transform: translateY(30px);
   }
-  100% {
+  to {
     opacity: 1;
-    transform: translateY(0);
   }
 }
 
-@keyframes shimmer {
-  0% {
-    transform: translateX(-100%);
-  }
-  100% {
-    transform: translateX(100%);
-  }
-}
-
-@keyframes spin-slow {
-  0% {
-    transform: rotate(0deg);
-  }
-  100% {
-    transform: rotate(360deg);
-  }
-}
-
-.animate-blob {
-  animation: blob 7s infinite;
-}
-
-.animate-fade-in-up {
-  animation: fade-in-up 0.8s ease-out forwards;
-}
-
-.animate-shimmer {
-  animation: shimmer 2s infinite;
-}
-
-.animate-spin-slow {
-  animation: spin-slow 3s linear infinite;
-}
-
-.animation-delay-100 {
-  animation-delay: 100ms;
-}
-
-.animation-delay-200 {
-  animation-delay: 200ms;
-}
-
-.animation-delay-1000 {
-  animation-delay: 1000ms;
-}
-
-.animation-delay-2000 {
-  animation-delay: 2s;
-}
-
-.animation-delay-4000 {
-  animation-delay: 4s;
-}
-
-.shadow-3xl {
-  box-shadow: 0 35px 60px -15px rgba(0, 0, 0, 0.3);
+.animate-fadeIn {
+  animation: fadeIn 0.4s ease-out;
 }

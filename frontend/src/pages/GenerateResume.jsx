@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import axios from "axios";
 import {
   Sparkles,
@@ -6,18 +6,34 @@ import {
   CheckCircle,
   ArrowLeft,
   Wand2,
+  Download,
+  Edit3,
+  Bold,
+  Italic,
+  Underline,
+  AlignLeft,
+  AlignCenter,
+  AlignRight,
+  List,
+  ListOrdered,
+  Undo,
+  Redo,
 } from "lucide-react";
 
 export default function GenerateResume({
   userId,
   educationData,
   jobDescription,
-  onComplete,
   onBack,
 }) {
-  const [status, setStatus] = useState("idle"); // idle, processing, success, error
-  const [message, setMessage] = useState("Saving your information...");
+  const [status, setStatus] = useState("idle"); // idle | processing | preview | error
+  const [message, setMessage] = useState("");
   const [progress, setProgress] = useState(0);
+  const [resumeHTML, setResumeHTML] = useState("");
+  const [isEditing, setIsEditing] = useState(false);
+
+  const editorRef = useRef(null);
+  const progressTimerRef = useRef(null);
 
   const BACKEND_URL =
     import.meta.env.VITE_BACKEND_URL || "http://localhost:8080";
@@ -25,262 +41,276 @@ export default function GenerateResume({
   const statusMessages = [
     "Preparing your data...",
     "Exporting documents from database...",
-    "Extracting text from PDFs and documents...",
-    "Sending data to Gemini AI for analysis...",
-    "AI is generating database queries...",
-    "Populating database with extracted information...",
-    "Fetching all your data from database...",
-    "Generating optimized resume with Gemini AI...",
-    "Finalizing your resume...",
+    "Extracting text from PDFs...",
+    "Sending data to Gemini AI...",
+    "Generating database queries...",
+    "Populating database...",
+    "Fetching final data...",
+    "Generating optimized resume...",
+    "Finalizing resume...",
   ];
 
-  // Function to start resume generation
+  // Cleanup timer on unmount
+  useEffect(() => {
+    return () => {
+      if (progressTimerRef.current) {
+        clearInterval(progressTimerRef.current);
+      }
+    };
+  }, []);
+
+  // ===================== GENERATE RESUME =====================
   const handleGenerateResume = async () => {
     setStatus("processing");
     setProgress(0);
 
-    let currentStep = 0;
-    const progressInterval = setInterval(() => {
-      setProgress((prev) => {
-        const newProgress = Math.min(prev + 10, 95);
-        return newProgress;
+    let step = 0;
+
+    progressTimerRef.current = setInterval(() => {
+      setProgress((prev) => Math.min(prev + 10, 95));
+      setMessage(statusMessages[step] || "Processing...");
+      step++;
+    }, 1800);
+
+    try {
+      // Save education
+      if (educationData?.length) {
+        await axios.post(`${BACKEND_URL}/api/education`, {
+          user_id: userId,
+          education: educationData,
+        });
+      }
+
+      // Save job description
+      if (jobDescription?.trim()) {
+        await axios.post(`${BACKEND_URL}/api/job-description`, {
+          user_id: userId,
+          description: jobDescription,
+        });
+      }
+
+      // Main processing
+      const res = await axios.post(`${BACKEND_URL}/api/upload/process`, {
+        user_id: userId,
       });
 
-      if (currentStep < statusMessages.length) {
-        setMessage(statusMessages[currentStep]);
-        currentStep++;
+      if (!res?.data?.resume?.html) {
+        throw new Error("Resume HTML not returned");
       }
-    }, 2000);
 
-    // Call backend to process everything
-    const generateResume = async () => {
-      try {
-        console.log("🚀 Starting resume generation for user:", userId);
+      clearInterval(progressTimerRef.current);
+      setProgress(100);
+      setMessage("Resume generated successfully!");
 
-        // Step 1: Save education data to backend
-        if (educationData && educationData.length > 0) {
-          console.log("📚 Saving education data...");
-          const educationUrl = `${BACKEND_URL.replace(
-            /\/$/,
-            ""
-          )}/api/education`;
-          await axios.post(educationUrl, {
-            user_id: userId,
-            education: educationData,
-          });
-          console.log("✅ Education data saved");
-        }
-
-        // Step 2: Save job description to backend
-        if (jobDescription && jobDescription.trim()) {
-          console.log("💼 Saving job description...");
-          const jobUrl = `${BACKEND_URL.replace(
-            /\/$/,
-            ""
-          )}/api/job-description`;
-          await axios.post(jobUrl, {
-            user_id: userId,
-            description: jobDescription,
-          });
-          console.log("✅ Job description saved");
-        }
-
-        // Step 3: Complete processing - exports documents, extracts text, generates queries, populates DB, and creates resume
-        console.log("⚙️ Starting document processing...");
-        const processUrl = `${BACKEND_URL.replace(
-          /\/$/,
-          ""
-        )}/api/upload/process`;
-        const response = await axios.post(processUrl, { user_id: userId });
-        const result = response.data;
-
-        console.log("✅ Processing complete:", result);
-
-        if (!result.resume || !result.resume.html) {
-          throw new Error(
-            "Resume HTML not found in response. Please ensure documents are uploaded."
-          );
-        }
-
-        clearInterval(progressInterval);
-        setProgress(100);
-        setMessage("Resume generated successfully!");
-        setStatus("success");
-
-        // Pass the generated resume to the next step
-        setTimeout(() => {
-          onComplete({
-            text: result.resume.html,
-            htmlContent: result.resume.html,
-            match_score: result.resume.matchScore || 0,
-            steps: result.steps,
-          });
-        }, 1500);
-      } catch (err) {
-        console.error("❌ Resume generation error:", err);
-        console.error("Error details:", {
-          message: err.message,
-          response: err?.response?.data,
-          status: err?.response?.status,
-        });
-
-        clearInterval(progressInterval);
-        setStatus("error");
-
-        // More detailed error message
-        let errorMsg = "Failed to generate resume";
-        if (err?.response?.data?.msg) {
-          errorMsg = err.response.data.msg;
-        } else if (err?.response?.data?.error) {
-          errorMsg = err.response.data.error;
-        } else if (err.message) {
-          errorMsg = err.message;
-        }
-
-        setMessage(errorMsg);
-      }
-    };
-
-    await generateResume();
+      setResumeHTML(res.data.resume.html);
+      setTimeout(() => setStatus("preview"), 600);
+    } catch (err) {
+      console.error(err);
+      clearInterval(progressTimerRef.current);
+      setStatus("error");
+      setMessage("Failed to generate resume");
+    }
   };
 
+  // ===================== DOWNLOAD PDF =====================
+  const handleDownloadPDF = async () => {
+    try {
+      const html = editorRef.current?.innerHTML || resumeHTML;
+
+      const res = await axios.post(
+        `${BACKEND_URL}/api/export-pdf`,
+        { html },
+        { responseType: "blob" }
+      );
+
+      const blob = new Blob([res.data], {
+        type: "application/pdf",
+      });
+
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "resume.pdf";
+      a.click();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error("PDF download failed", err);
+      alert("Failed to download PDF");
+    }
+  };
+
+  // ===================== FORMATTING COMMANDS =====================
+  const formatText = (command, value = null) => {
+    document.execCommand(command, false, value);
+    editorRef.current?.focus();
+  };
+
+  const formatButtons = [
+    { icon: Undo, command: "undo", tooltip: "Undo" },
+    { icon: Redo, command: "redo", tooltip: "Redo" },
+    { icon: Bold, command: "bold", tooltip: "Bold" },
+    { icon: Italic, command: "italic", tooltip: "Italic" },
+    { icon: Underline, command: "underline", tooltip: "Underline" },
+    { icon: AlignLeft, command: "justifyLeft", tooltip: "Align Left" },
+    { icon: AlignCenter, command: "justifyCenter", tooltip: "Align Center" },
+    { icon: AlignRight, command: "justifyRight", tooltip: "Align Right" },
+    { icon: List, command: "insertUnorderedList", tooltip: "Bullet List" },
+    {
+      icon: ListOrdered,
+      command: "insertOrderedList",
+      tooltip: "Numbered List",
+    },
+  ];
+
+  // ===================== UI =====================
   return (
-    <div className="bg-gradient-to-br from-indigo-50 via-purple-50 to-pink-50 min-h-screen flex items-center justify-center py-12 px-4">
-      <div className="bg-white rounded-2xl shadow-2xl p-12 max-w-2xl w-full border-2 border-indigo-100">
+    <div className="min-h-screen bg-gradient-to-b from-black via-gray-900 to-black p-6">
+      <div className="max-w-5xl mx-auto bg-gradient-to-br from-white/5 to-white/[0.02] rounded-2xl shadow-2xl p-10 border border-white/10 backdrop-blur-sm">
+        {/* ================= IDLE ================= */}
         {status === "idle" && (
           <div className="text-center">
-            {/* Ready to Generate Icon */}
-            <div className="relative w-24 h-24 mx-auto mb-8">
-              <div className="absolute inset-0 bg-gradient-to-br from-indigo-600 to-purple-600 rounded-3xl flex items-center justify-center shadow-2xl transform hover:rotate-12 transition-all duration-300">
-                <Wand2 className="w-12 h-12 text-white" />
-              </div>
+            <div className="w-24 h-24 mx-auto mb-8 bg-gradient-to-br from-blue-600 to-purple-600 rounded-3xl flex items-center justify-center shadow-2xl">
+              <Wand2 className="w-12 h-12 text-white" />
             </div>
 
-            <h2 className="text-4xl font-extrabold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent mb-4">
+            <h2 className="text-4xl font-extrabold text-white mb-4">
               Ready to Generate Your Resume
             </h2>
-            <p className="text-lg text-gray-600 mb-8">
-              We have all your information. Click the button below to generate
-              your AI-powered resume!
+            <p className="text-gray-400 mb-8 text-lg">
+              AI will generate a professional, ATS-friendly resume.
             </p>
 
-            {/* Summary of what will be processed */}
-            <div className="bg-gradient-to-br from-indigo-50 to-purple-50 rounded-2xl p-6 mb-8 text-left border-2 border-indigo-100">
-              <h3 className="font-bold text-gray-900 mb-4 text-xl">
-                What we'll include:
-              </h3>
-              <ul className="space-y-3 text-gray-700">
-                <li className="flex items-center gap-3">
-                  <CheckCircle className="w-6 h-6 text-green-600" />
-                  <span className="text-lg">
-                    {educationData?.length || 0} Education entries
-                  </span>
-                </li>
-                <li className="flex items-center gap-3">
-                  <CheckCircle className="w-6 h-6 text-green-600" />
-                  <span className="text-lg">
-                    Uploaded documents (certificates, projects)
-                  </span>
-                </li>
-                <li className="flex items-center gap-3">
-                  <CheckCircle className="w-6 h-6 text-green-600" />
-                  <span className="text-lg">
-                    {jobDescription
-                      ? "Job description provided"
-                      : "General resume (no specific job)"}
-                  </span>
-                </li>
-              </ul>
-            </div>
-
-            {/* Generate Button */}
             <button
               onClick={handleGenerateResume}
-              className="px-12 py-5 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl font-bold hover:shadow-2xl flex items-center gap-3 mx-auto text-lg transform transition-all duration-300 hover:scale-105"
+              className="px-12 py-5 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 transition-all hover:scale-105 inline-flex items-center gap-3 shadow-lg shadow-blue-600/50"
             >
               <Sparkles className="w-6 h-6" />
               Generate Resume
             </button>
 
-            {/* Back Button */}
             <button
               onClick={onBack}
-              className="mt-6 px-8 py-3 bg-white text-gray-700 border-2 border-gray-300 rounded-xl font-semibold hover:bg-gray-50 hover:border-indigo-300 flex items-center gap-2 mx-auto transition-all duration-300"
+              className="mt-6 flex items-center gap-2 mx-auto text-gray-400 hover:text-white transition-colors"
             >
-              <ArrowLeft className="w-5 h-5" />
-              Back to Job Description
+              <ArrowLeft className="w-4 h-4" />
+              Back
             </button>
           </div>
         )}
 
+        {/* ================= PROCESSING ================= */}
         {status === "processing" && (
           <div className="text-center">
-            {/* Animated Icon */}
-            <div className="relative w-32 h-32 mx-auto mb-8">
-              <div className="absolute inset-0 bg-indigo-200 rounded-full animate-ping opacity-75"></div>
-              <div className="absolute inset-0 bg-gradient-to-br from-indigo-600 to-purple-600 rounded-full flex items-center justify-center shadow-2xl">
-                <Sparkles className="w-16 h-16 text-white animate-pulse" />
-              </div>
-            </div>
-
-            <h2 className="text-4xl font-extrabold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent mb-4">
-              Generating Your Resume
+            <Sparkles className="w-16 h-16 mx-auto text-blue-400 animate-pulse mb-4" />
+            <h2 className="text-3xl font-bold text-white mb-4">
+              Generating Resume
             </h2>
-            <p className="text-lg text-gray-600 mb-8">{message}</p>
+            <p className="text-gray-400 mb-6 text-lg">{message}</p>
 
-            {/* Progress Bar */}
-            <div className="w-full bg-gray-200 rounded-full h-4 mb-4 shadow-inner">
+            <div className="w-full bg-white/10 rounded-full h-4 mb-4">
               <div
-                className="bg-gradient-to-r from-indigo-600 to-purple-600 h-4 rounded-full transition-all duration-500 ease-out shadow-md"
+                className="bg-gradient-to-r from-blue-600 to-purple-600 h-4 rounded-full transition-all duration-500"
                 style={{ width: `${progress}%` }}
               />
             </div>
-            <p className="text-base text-gray-600 font-semibold">
-              {progress}% Complete
-            </p>
 
-            {/* Processing Steps Animation */}
-            <div className="mt-12 flex justify-center space-x-3">
-              {[0, 1, 2, 3].map((i) => (
-                <div
-                  key={i}
-                  className="w-4 h-4 bg-gradient-to-br from-indigo-600 to-purple-600 rounded-full animate-bounce shadow-lg"
-                  style={{
-                    animationDelay: `${i * 0.15}s`,
-                  }}
-                />
-              ))}
-            </div>
+            <p className="text-gray-400 font-semibold">{progress}% complete</p>
           </div>
         )}
 
-        {status === "success" && (
-          <div className="text-center">
-            <div className="w-32 h-32 mx-auto mb-6 bg-gradient-to-br from-green-400 to-emerald-600 rounded-3xl flex items-center justify-center shadow-2xl animate-bounce">
-              <CheckCircle className="w-16 h-16 text-white" />
+        {/* ================= PREVIEW + EDITOR ================= */}
+        {status === "preview" && (
+          <>
+            <div className="flex items-center justify-between mb-6">
+              <button
+                onClick={() => setStatus("idle")}
+                className="flex items-center gap-2 text-gray-400 hover:text-white transition-colors"
+              >
+                <ArrowLeft className="w-4 h-4" />
+                Regenerate
+              </button>
+
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setIsEditing((v) => !v)}
+                  className="px-4 py-2 bg-white/10 text-white rounded-lg font-semibold flex items-center gap-2 hover:bg-white/20 transition-colors"
+                >
+                  <Edit3 className="w-4 h-4" />
+                  {isEditing ? "Done Editing" : "Edit"}
+                </button>
+
+                <button
+                  onClick={handleDownloadPDF}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg font-semibold flex items-center gap-2 hover:bg-blue-700 transition-colors"
+                >
+                  <Download className="w-4 h-4" />
+                  Download PDF
+                </button>
+              </div>
             </div>
-            <h2 className="text-4xl font-extrabold bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent mb-4">
-              Success!
-            </h2>
-            <p className="text-lg text-gray-600">{message}</p>
-          </div>
+
+            {/* ================= FORMATTING TOOLBAR ================= */}
+            {isEditing && (
+              <div className="mb-4 p-3 bg-white/5 border border-white/10 rounded-lg backdrop-blur-sm flex items-center gap-2 flex-wrap">
+                {formatButtons.map((btn, idx) => (
+                  <button
+                    key={idx}
+                    onClick={() => formatText(btn.command)}
+                    onMouseDown={(e) => e.preventDefault()}
+                    className="p-2 bg-white/10 hover:bg-white/20 text-white rounded transition-colors"
+                    title={btn.tooltip}
+                  >
+                    <btn.icon className="w-4 h-4" />
+                  </button>
+                ))}
+              </div>
+            )}
+
+            <div
+              ref={editorRef}
+              contentEditable={isEditing}
+              suppressContentEditableWarning
+              spellCheck="true"
+              className={`bg-white border rounded-lg shadow-lg p-8 min-h-[600px] outline-none transition-all ${
+                isEditing
+                  ? "border-blue-400 ring-2 ring-blue-400/50 cursor-text"
+                  : "border-gray-300"
+              }`}
+              style={{
+                lineHeight: "1.6",
+                fontFamily: "system-ui, -apple-system, sans-serif",
+                fontSize: "14px",
+              }}
+              dangerouslySetInnerHTML={{ __html: resumeHTML }}
+              onInput={(e) => setResumeHTML(e.currentTarget.innerHTML)}
+              onFocus={(e) => {
+                if (isEditing && !window.getSelection().rangeCount) {
+                  const range = document.createRange();
+                  range.selectNodeContents(e.currentTarget);
+                  range.collapse(false);
+                  const selection = window.getSelection();
+                  selection?.removeAllRanges();
+                  selection?.addRange(range);
+                }
+              }}
+            />
+          </>
         )}
 
+        {/* ================= ERROR ================= */}
         {status === "error" && (
           <div className="text-center">
-            <div className="w-32 h-32 mx-auto mb-6 bg-gradient-to-br from-red-400 to-red-600 rounded-3xl flex items-center justify-center shadow-2xl">
-              <FileText className="w-16 h-16 text-white" />
-            </div>
-            <h2 className="text-4xl font-extrabold bg-gradient-to-r from-red-600 to-red-800 bg-clip-text text-transparent mb-4">
-              Oops! Something went wrong
+            <FileText className="w-16 h-16 mx-auto text-red-400 mb-4" />
+            <h2 className="text-3xl font-bold text-red-400 mb-4">
+              Something went wrong
             </h2>
-            <p className="text-lg text-gray-600 mb-8">{message}</p>
+            <p className="text-gray-400 mb-6">{message}</p>
+
             <button
-              onClick={onBack}
-              className="px-10 py-4 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl font-bold hover:shadow-2xl flex items-center gap-2 mx-auto transition-all duration-300 transform hover:scale-105"
+              onClick={() => setStatus("idle")}
+              className="px-8 py-4 bg-blue-600 text-white rounded-lg font-bold hover:bg-blue-700 transition-colors"
             >
-              <ArrowLeft className="w-5 h-5" />
-              Go Back
+              Try Again
             </button>
           </div>
         )}

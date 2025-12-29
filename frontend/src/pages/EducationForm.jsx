@@ -77,18 +77,18 @@ export default function EducationForm({ onNext, initialData = [] }) {
   };
 
   return (
-    <div className="bg-gradient-to-br from-indigo-50 via-purple-50 to-pink-50 min-h-screen py-12 px-4">
+    <div className="bg-gradient-to-b from-black via-gray-900 to-black min-h-screen py-12 px-4">
       <div className="max-w-4xl mx-auto">
-        <div className="bg-white rounded-2xl shadow-2xl p-8 border-2 border-indigo-100">
+        <div className="bg-gradient-to-br from-white/5 to-white/[0.02] rounded-2xl shadow-2xl p-8 border border-white/10 backdrop-blur-sm">
           <div className="flex items-center mb-8">
-            <div className="w-16 h-16 bg-gradient-to-br from-indigo-600 to-purple-600 rounded-2xl flex items-center justify-center shadow-lg mr-4">
+            <div className="w-16 h-16 bg-gradient-to-br from-blue-600 to-purple-600 rounded-2xl flex items-center justify-center shadow-lg mr-4">
               <GraduationCap className="w-8 h-8 text-white" />
             </div>
             <div>
-              <h2 className="text-4xl font-extrabold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
+              <h2 className="text-4xl font-extrabold text-white">
                 Education Details
               </h2>
-              <p className="text-gray-600 mt-2 text-lg">
+              <p className="text-gray-400 mt-2 text-lg">
                 Add your educational background
               </p>
             </div>
@@ -98,7 +98,7 @@ export default function EducationForm({ onNext, initialData = [] }) {
             {educationList.map((education, index) => (
               <div
                 key={index}
-                className="border-2 border-indigo-100 rounded-xl p-6 relative bg-gradient-to-br from-white to-indigo-50 shadow-md hover:shadow-lg transition-all duration-300"
+                className="border border-white/10 rounded-xl p-6 relative bg-gradient-to-br from-white/5 to-white/[0.02] backdrop-blur-sm shadow-md hover:shadow-lg transition-all duration-300"
               >
                 {educationList.length > 1 && (
                   <button
@@ -110,13 +110,13 @@ export default function EducationForm({ onNext, initialData = [] }) {
                   </button>
                 )}
 
-                <h3 className="text-lg font-semibold text-gray-800 mb-4">
+                <h3 className="text-lg font-semibold text-white mb-4">
                   Education {index + 1}
                 </h3>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="md:col-span-2">
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-sm font-medium text-gray-300 mb-2">
                       Institution Name *
                     </label>
                     <input
@@ -129,14 +129,14 @@ export default function EducationForm({ onNext, initialData = [] }) {
                           e.target.value
                         )
                       }
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                      className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-lg focus:ring-2 focus:ring-blue-400/50 focus:border-transparent text-white placeholder-gray-400"
                       placeholder="e.g., Harvard University"
                       required
                     />
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-sm font-medium text-gray-300 mb-2">
                       Degree *
                     </label>
                     <input
@@ -145,14 +145,14 @@ export default function EducationForm({ onNext, initialData = [] }) {
                       onChange={(e) =>
                         updateEducation(index, "degree", e.target.value)
                       }
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                      className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-lg focus:ring-2 focus:ring-blue-400/50 focus:border-transparent text-white placeholder-gray-400"
                       placeholder="e.g., Bachelor of Science"
                       required
                     />
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-sm font-medium text-gray-300 mb-2">
                       Field of Study
                     </label>
                     <input
@@ -161,13 +161,13 @@ export default function EducationForm({ onNext, initialData = [] }) {
                       onChange={(e) =>
                         updateEducation(index, "field_of_study", e.target.value)
                       }
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                      className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-lg focus:ring-2 focus:ring-blue-400/50 focus:border-transparent text-white placeholder-gray-400"
                       placeholder="e.g., Computer Science"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-sm font-medium text-gray-300 mb-2">
                       Grade / GPA
                     </label>
                     <input
@@ -176,13 +176,13 @@ export default function EducationForm({ onNext, initialData = [] }) {
                       onChange={(e) =>
                         updateEducation(index, "grade", e.target.value)
                       }
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                      className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-lg focus:ring-2 focus:ring-blue-400/50 focus:border-transparent text-white placeholder-gray-400"
                       placeholder="e.g., 3.8 / 4.0 or 85%"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-sm font-medium text-gray-300 mb-2">
                       Completion Year
                     </label>
                     <input
@@ -195,19 +195,19 @@ export default function EducationForm({ onNext, initialData = [] }) {
                           e.target.value
                         )
                       }
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                      className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-lg focus:ring-2 focus:ring-blue-400/50 focus:border-transparent text-white placeholder-gray-400"
                       placeholder="e.g., 2024"
                     />
                   </div>
 
                   <div className="md:col-span-2">
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-sm font-medium text-gray-300 mb-2">
                       Highlights (one per line)
                     </label>
                     <textarea
                       value={(education.highlights || []).join("\n")}
                       onChange={(e) => updateHighlights(index, e.target.value)}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent resize-none"
+                      className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-lg focus:ring-2 focus:ring-blue-400/50 focus:border-transparent resize-none text-white placeholder-gray-400"
                       rows="4"
                       placeholder="e.g.,&#10;Dean's List&#10;Computer Science Society President&#10;Research Assistant in AI Lab"
                     />
@@ -219,7 +219,7 @@ export default function EducationForm({ onNext, initialData = [] }) {
             <button
               type="button"
               onClick={addEducation}
-              className="w-full py-4 border-2 border-dashed border-indigo-300 text-indigo-600 rounded-xl hover:border-indigo-500 hover:bg-indigo-50 flex items-center justify-center gap-2 font-semibold transition-all duration-300 hover:scale-105"
+              className="w-full py-4 border-2 border-dashed border-white/20 text-blue-400 rounded-xl hover:border-blue-400/50 hover:bg-white/5 flex items-center justify-center gap-2 font-semibold transition-all duration-300 hover:scale-105"
             >
               <Plus className="w-5 h-5" />
               Add Another Education
@@ -228,7 +228,7 @@ export default function EducationForm({ onNext, initialData = [] }) {
             <div className="flex justify-end">
               <button
                 type="submit"
-                className="px-10 py-4 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl font-bold text-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 flex items-center gap-3"
+                className="px-10 py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold text-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 flex items-center gap-3"
               >
                 <Save className="w-5 h-5" />
                 Save & Continue
