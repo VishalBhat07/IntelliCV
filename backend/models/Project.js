@@ -31,6 +31,19 @@ const Project = sequelize.define(
     duration: {
       type: DataTypes.STRING, // Example: "Jan 2024 – Apr 2024"
     },
+
+    // File upload fields
+    mongo_file_id: {
+      type: DataTypes.STRING,
+    },
+
+    file_name: {
+      type: DataTypes.STRING,
+    },
+
+    file_size: {
+      type: DataTypes.BIGINT,
+    },
   },
   {
     timestamps: false,

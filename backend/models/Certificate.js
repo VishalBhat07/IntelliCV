@@ -31,6 +31,19 @@ const Certificate = sequelize.define(
     file_path: {
       type: DataTypes.STRING, // link stored in Mongo or Cloud storage
     },
+
+    // File upload fields
+    mongo_file_id: {
+      type: DataTypes.STRING,
+    },
+
+    file_name: {
+      type: DataTypes.STRING,
+    },
+
+    file_size: {
+      type: DataTypes.BIGINT,
+    },
   },
   {
     timestamps: false,

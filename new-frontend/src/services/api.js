@@ -58,4 +58,90 @@ export const authAPI = {
   },
 };
 
+// Education API calls
+export const educationAPI = {
+  save: async (userId, education) => {
+    const response = await api.post("/education", {
+      user_id: userId,
+      education: education,
+    });
+    return response.data;
+  },
+
+  get: async (userId) => {
+    const response = await api.get(`/education/${userId}`);
+    return response.data;
+  },
+};
+
+// Upload API calls
+export const uploadAPI = {
+  uploadFiles: async (userId, files, fileType, onProgress) => {
+    const formData = new FormData();
+    formData.append("user_id", userId);
+    formData.append("file_type", fileType);
+    files.forEach((file) => formData.append("files", file));
+
+    const response = await api.post("/upload", formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+      onUploadProgress: onProgress,
+    });
+    return response.data;
+  },
+
+  listDocuments: async (userId) => {
+    const response = await api.get(`/upload/list/${userId}`);
+    return response.data;
+  },
+};
+
+// Job Description API calls
+export const jobDescriptionAPI = {
+  save: async (userId, description) => {
+    const response = await api.post("/job-description", {
+      user_id: userId,
+      description: description,
+    });
+    return response.data;
+  },
+
+  get: async (userId) => {
+    const response = await api.get(`/job-description/${userId}`);
+    return response.data;
+  },
+};
+
+// Resume API calls
+export const resumeAPI = {
+  // Process documents and generate resume via LLM
+  process: async (userId) => {
+    const response = await api.post("/upload/process", {
+      user_id: userId,
+    });
+    return response.data;
+  },
+
+  // Get all resumes for a user
+  getAll: async (userId) => {
+    const response = await api.get(`/resume/${userId}`);
+    return response.data;
+  },
+
+  // Get the latest resume
+  getLatest: async (userId) => {
+    const response = await api.get(`/resume/latest/${userId}`);
+    return response.data;
+  },
+
+  // Export resume as PDF
+  exportPdf: async (html, fileName) => {
+    const response = await api.post(
+      "/export-pdf",
+      { html, fileName },
+      { responseType: "blob" }
+    );
+    return response.data;
+  },
+};
+
 export default api;

@@ -77,21 +77,23 @@ exports.handleUpload = async (req, res) => {
           .pipe(uploadStream)
           .on("error", (err) => reject(err))
           .on("finish", async () => {
-            // save metadata to MySQL
+            // Save ALL uploads to Document table only
             try {
-              const doc = await Document.create({
+              const mongoFileId = uploadStream.id.toString();
+              
+              const savedRecord = await Document.create({
                 user_id: user_id,
                 file_name: f.originalname,
                 file_type,
                 file_size: f.size,
-                mongo_file_id: uploadStream.id.toString(),
+                mongo_file_id: mongoFileId,
               });
 
               results.push({
-                id: doc.id,
-                file_name: doc.file_name,
-                file_type: doc.file_type,
-                mongo_file_id: doc.mongo_file_id,
+                id: savedRecord.id,
+                file_name: savedRecord.file_name,
+                file_type: savedRecord.file_type,
+                mongo_file_id: savedRecord.mongo_file_id,
               });
 
               resolve();

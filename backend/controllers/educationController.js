@@ -23,6 +23,7 @@ exports.saveEducation = async (req, res) => {
       degree: edu.degree || "",
       field_of_study: edu.field_of_study || null,
       grade: edu.grade || null,
+      start_year: edu.start_year || null,
       completion_year: edu.completion_year || null,
       highlights: edu.highlights ? JSON.stringify(edu.highlights) : null,
     }));

@@ -1,4 +1,6 @@
 import { useState } from "react";
+import toast from "react-hot-toast";
+import { educationAPI } from "../../services/api";
 
 const EducationStep = ({ data, onUpdate, onNext, onBack }) => {
   const [educations, setEducations] = useState(
@@ -45,6 +47,56 @@ const EducationStep = ({ data, onUpdate, onNext, onBack }) => {
       const updated = educations.filter((edu) => edu.id !== id);
       setEducations(updated);
       onUpdate(updated);
+    }
+  };
+
+  const [saving, setSaving] = useState(false);
+
+  const handleNext = async () => {
+    // Validate at least one education entry has required fields
+    const hasValidEntry = educations.some(
+      (edu) => edu.institution && edu.degree
+    );
+
+    if (!hasValidEntry) {
+      toast.error("Please fill in at least institution name and degree for one entry.");
+      return;
+    }
+
+    // Filter out empty entries and format for backend
+    const validEducation = educations
+      .filter((edu) => edu.institution || edu.degree)
+      .map((edu) => ({
+        institution_name: edu.institution,
+        degree: edu.degree,
+        field_of_study: edu.field,
+        grade: edu.gpa,
+        start_year: edu.startDate ? edu.startDate.split("-")[0] : "",
+        completion_year: edu.endDate ? edu.endDate.split("-")[0] : "",
+        highlights: edu.highlights
+          ? edu.highlights.split("\n").filter(Boolean)
+          : [],
+      }));
+
+    setSaving(true);
+    try {
+      const user = JSON.parse(localStorage.getItem("user"));
+      if (!user?.user_id) {
+        toast.error("User not found. Please login again.");
+        setSaving(false);
+        return;
+      }
+
+      await educationAPI.save(user.user_id, validEducation);
+      toast.success("Education saved successfully!");
+      onNext();
+    } catch (error) {
+      console.error("Failed to save education:", error);
+      toast.error(
+        error.response?.data?.msg || "Failed to save education. Please try again."
+      );
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -283,13 +335,25 @@ const EducationStep = ({ data, onUpdate, onNext, onBack }) => {
           Back
         </button>
         <button
-          onClick={onNext}
-          className="flex items-center gap-2 px-8 py-3 rounded-lg bg-blue-500 text-white font-bold text-sm shadow-[0_0_20px_rgba(59,130,246,0.3)] hover:shadow-[0_0_25px_rgba(59,130,246,0.5)] hover:bg-blue-600 hover:scale-[1.02] active:scale-[0.98] transition-all"
+          onClick={handleNext}
+          disabled={saving}
+          className="flex items-center gap-2 px-8 py-3 rounded-lg bg-blue-500 text-white font-bold text-sm shadow-[0_0_20px_rgba(59,130,246,0.3)] hover:shadow-[0_0_25px_rgba(59,130,246,0.5)] hover:bg-blue-600 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          Next: Upload Documents
-          <span className="material-symbols-outlined text-lg">
-            arrow_forward
-          </span>
+          {saving ? (
+            <>
+              <span className="material-symbols-outlined text-lg animate-spin">
+                sync
+              </span>
+              Saving...
+            </>
+          ) : (
+            <>
+              Next: Upload Documents
+              <span className="material-symbols-outlined text-lg">
+                arrow_forward
+              </span>
+            </>
+          )}
         </button>
       </div>
     </div>

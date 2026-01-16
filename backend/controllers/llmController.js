@@ -531,7 +531,7 @@ async function generateFinalResume(data, userId) {
         .join(" ")
     : "Unknown";
 
-  const prompt = `Generate an ATS-optimized resume in clean HTML format based on the following information:
+  const prompt = `Generate an ATS-optimized resume in STRUCTURED JSON format based on the following information:
 
 USER DATA:
 Name: ${userName}
@@ -542,9 +542,10 @@ EDUCATION:
 ${data.education
   .map(
     (e) => `
-- ${e.degree} in ${e.field_of_study} from ${e.institution}
-  Duration: ${e.start_date} to ${e.end_date}
-  GPA: ${e.gpa || "N/A"}
+- ${e.degree} in ${e.field_of_study} from ${e.institution_name}
+  Start Year: ${e.start_year || "N/A"}
+  Completion Year: ${e.completion_year || "N/A"}
+  Grade: ${e.grade || "N/A"}
   ${e.highlights ? `Highlights: ${JSON.stringify(e.highlights)}` : ""}
 `
   )
@@ -557,7 +558,6 @@ ${data.certificates
 - ${c.title}
   Issued by: ${c.issuing_org || "N/A"}
   Date: ${c.issue_date || "N/A"}
-  File: ${c.file_path || "N/A"}
 `
   )
   .join("\n")}
@@ -577,38 +577,119 @@ ${data.projects
 ${
   data.jobDescription
     ? `TARGET JOB:
-Title: ${data.jobDescription.job_title}
-Company: ${data.jobDescription.company_name}
-Required Skills: ${data.jobDescription.required_skills}
-Description: ${data.jobDescription.description}`
+Title: ${data.jobDescription.title || "N/A"}
+Company: ${data.jobDescription.company || "N/A"}
+Description: ${data.jobDescription.jd_text || "N/A"}`
     : ""
 }
 
-Generate a professional, ATS-friendly resume in HTML format. Use clean CSS styling.
-Include sections for: Contact Info, Summary, Skills, Education, Certifications, and Projects.
-Make it visually appealing and well-structured.`;
+Generate a professional, ATS-friendly resume in the following EXACT JSON structure:
+
+{
+  "personal_info": {
+    "name": "Full Name",
+    "title": "Professional Title (e.g., Senior Software Engineer)",
+    "email": "email@example.com",
+    "phone": "Phone number if available",
+    "location": "City, State if available",
+    "linkedin": "LinkedIn URL if available",
+    "github": "GitHub URL if available"
+  },
+  "summary": "A compelling 2-3 sentence professional summary highlighting key strengths and experience",
+  "experience": [
+    {
+      "position": "Job Title",
+      "company": "Company Name",
+      "startDate": "YYYY or Month YYYY",
+      "endDate": "YYYY or Month YYYY or Present",
+      "location": "City, State",
+      "description": "• Bullet point 1\\n• Bullet point 2\\n• Bullet point 3"
+    }
+  ],
+  "education": [
+    {
+      "degree": "Degree Name",
+      "institution": "Institution Name",
+      "year": "Graduation Year",
+      "gpa": "GPA if notable",
+      "highlights": ["Achievement 1", "Achievement 2"]
+    }
+  ],
+  "skills": {
+    "technical": ["Skill 1", "Skill 2", "Skill 3"],
+    "tools": ["Tool 1", "Tool 2"],
+    "soft": ["Soft skill 1", "Soft skill 2"]
+  },
+  "projects": [
+    {
+      "title": "Project Name",
+      "description": "Brief description",
+      "technologies": ["Tech 1", "Tech 2"],
+      "link": "URL if available"
+    }
+  ],
+  "certifications": [
+    {
+      "title": "Certification Name",
+      "issuer": "Issuing Organization",
+      "date": "YYYY or Month YYYY"
+    }
+  ]
+}
+
+IMPORTANT:
+1. Return ONLY valid JSON, no markdown code blocks
+2. Use the actual data provided above
+3. For experience section, infer from projects and education if no explicit work experience
+4. Make the summary ATS-optimized with relevant keywords
+5. Ensure all arrays have at least one item, even if inferred
+6. If no phone/location/linkedin/github available, use empty string ""`;
 
   const result = await retryWithBackoff(async () => {
     return await model.generateContent(prompt);
   });
 
   const response = result.response;
-  let htmlContent = response.text();
+  let jsonText = response.text();
 
   // Clean up markdown code blocks if present
-  htmlContent = htmlContent.replace(/```html\n?/g, "").replace(/```\n?/g, "");
+  jsonText = jsonText.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
 
-  // Save to database
+  // Parse the JSON response
+  let resumeData;
+  try {
+    resumeData = JSON.parse(jsonText);
+  } catch (parseError) {
+    console.error("Error parsing JSON response:", parseError);
+    console.log("Raw response:", jsonText);
+    
+    // Try to extract JSON from the response
+    const startIdx = jsonText.indexOf("{");
+    const endIdx = jsonText.lastIndexOf("}") + 1;
+    if (startIdx !== -1 && endIdx > startIdx) {
+      const extractedJson = jsonText.substring(startIdx, endIdx);
+      resumeData = JSON.parse(extractedJson);
+    } else {
+      throw new Error("Failed to parse resume JSON from LLM response");
+    }
+  }
+
+  // Save to database with structured sections
   await GeneratedResume.upsert({
     user_id: userId,
     job_id: data.jobDescription?.job_id || null,
-    resume_html: htmlContent,
-    generated_text: htmlContent,
+    personal_info: resumeData.personal_info || {},
+    summary: resumeData.summary || "",
+    experience: resumeData.experience || [],
+    education: resumeData.education || [],
+    skills: resumeData.skills || {},
+    projects: resumeData.projects || [],
+    certifications: resumeData.certifications || [],
     match_score: calculateMatchScore(data),
   });
 
   return {
-    html: htmlContent,
+    resume: resumeData,
     matchScore: calculateMatchScore(data),
   };
 }
@@ -735,11 +816,8 @@ exports.processDocuments = async (req, res) => {
         queriesExecuted: executionResults.successful.length,
         queriesFailed: executionResults.failed.length,
       },
-      resume: {
-        html: resume.html, // Include the actual HTML content
-        matchScore: resume.matchScore,
-        htmlLength: resume.html.length,
-      },
+      resume: resume.resume, // Return the structured resume data
+      matchScore: resume.matchScore,
       executionResults,
     });
   } catch (error) {

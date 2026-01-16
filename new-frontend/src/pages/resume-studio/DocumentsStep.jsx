@@ -1,10 +1,14 @@
 import { useState, useRef } from "react";
 import toast from "react-hot-toast";
+import { uploadAPI } from "../../services/api";
+
+// File types matching the old frontend
+const FILE_TYPES = ["Certificates", "Project", "Education", "Miscellaneous"];
 
 const DocumentsStep = ({ data, onUpdate, onNext, onBack }) => {
   const [documents, setDocuments] = useState(data || []);
   const [uploading, setUploading] = useState(null);
-  const [docType, setDocType] = useState("resume");
+  const [docType, setDocType] = useState(FILE_TYPES[0]);
   const fileInputRef = useRef(null);
 
   const handleFileSelect = async (e) => {
@@ -28,34 +32,54 @@ const DocumentsStep = ({ data, onUpdate, onNext, onBack }) => {
       return;
     }
 
-    // Simulate upload
+    // Upload to backend
     setUploading({
       name: file.name,
       progress: 0,
       type: docType,
     });
 
-    // Simulate progress
-    for (let i = 0; i <= 100; i += 10) {
-      await new Promise((resolve) => setTimeout(resolve, 100));
-      setUploading((prev) => (prev ? { ...prev, progress: i } : null));
+    try {
+      const user = JSON.parse(localStorage.getItem("user"));
+      if (!user?.user_id) {
+        toast.error("User not found. Please login again.");
+        setUploading(null);
+        return;
+      }
+
+      const response = await uploadAPI.uploadFiles(
+        user.user_id,
+        [file],
+        docType,
+        (progressEvent) => {
+          const percent = Math.round(
+            (progressEvent.loaded / progressEvent.total) * 100
+          );
+          setUploading((prev) => (prev ? { ...prev, progress: percent } : null));
+        }
+      );
+
+      // Add uploaded files to documents list
+      const uploadedFiles = (response.files || []).map((f) => ({
+        id: f._id || Date.now(),
+        name: f.file_name || file.name,
+        type: f.file_type || docType,
+        size: formatFileSize(file.size),
+        uploadedAt: "just now",
+      }));
+
+      const updated = [...documents, ...uploadedFiles];
+      setDocuments(updated);
+      onUpdate(updated);
+      setUploading(null);
+      toast.success("Document uploaded successfully!");
+    } catch (error) {
+      console.error("Upload failed:", error);
+      setUploading(null);
+      toast.error(
+        error.response?.data?.msg || "Upload failed. Please try again."
+      );
     }
-
-    // Add to documents list
-    const newDoc = {
-      id: Date.now(),
-      name: file.name,
-      type: docType,
-      size: formatFileSize(file.size),
-      uploadedAt: "just now",
-      file: file,
-    };
-
-    const updated = [...documents, newDoc];
-    setDocuments(updated);
-    onUpdate(updated);
-    setUploading(null);
-    toast.success("Document uploaded successfully!");
 
     // Reset file input
     if (fileInputRef.current) {
@@ -78,32 +102,22 @@ const DocumentsStep = ({ data, onUpdate, onNext, onBack }) => {
 
   const getFileIcon = (type) => {
     switch (type) {
-      case "resume":
-        return { icon: "picture_as_pdf", color: "red" };
-      case "cover_letter":
-        return { icon: "article", color: "blue" };
-      case "portfolio":
-        return { icon: "folder", color: "purple" };
-      case "reference":
-        return { icon: "contact_page", color: "green" };
+      case "Certificates":
+        return { icon: "workspace_premium", color: "amber" };
+      case "Project":
+        return { icon: "folder_open", color: "blue" };
+      case "Education":
+        return { icon: "school", color: "purple" };
+      case "Miscellaneous":
+        return { icon: "description", color: "green" };
       default:
         return { icon: "description", color: "gray" };
     }
   };
 
   const getTypeLabel = (type) => {
-    switch (type) {
-      case "resume":
-        return "Resume";
-      case "cover_letter":
-        return "Cover Letter";
-      case "portfolio":
-        return "Portfolio";
-      case "reference":
-        return "References";
-      default:
-        return "Other";
-    }
+    // Since we're now using the exact type names, just return the type
+    return type || "Other";
   };
 
   return (
@@ -159,11 +173,11 @@ const DocumentsStep = ({ data, onUpdate, onNext, onBack }) => {
                 value={docType}
                 onChange={(e) => setDocType(e.target.value)}
               >
-                <option value="resume">Resume / CV</option>
-                <option value="cover_letter">Cover Letter</option>
-                <option value="portfolio">Portfolio</option>
-                <option value="reference">References</option>
-                <option value="other">Other</option>
+                {FILE_TYPES.map((type) => (
+                  <option key={type} value={type}>
+                    {type}
+                  </option>
+                ))}
               </select>
               <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-slate-400 group-hover:text-white transition-colors">
                 <span className="material-symbols-outlined">expand_more</span>

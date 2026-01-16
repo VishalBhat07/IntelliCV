@@ -19,6 +19,7 @@ const ResumeStudio = () => {
     documents: [],
     jobDescription: { text: "", file: null },
   });
+  const [generatedResume, setGeneratedResume] = useState(null);
 
   const handleLogout = () => {
     logout();
@@ -98,7 +99,10 @@ const ResumeStudio = () => {
     }
   };
 
-  const handleGenerationComplete = () => {
+  const handleGenerationComplete = (generatedResumeData) => {
+    // Store the generated resume data
+    console.log("📥 ResumeStudio received generated resume:", generatedResumeData);
+    setGeneratedResume(generatedResumeData);
     // Show curtain animation
     setShowCurtain(true);
   };
@@ -115,7 +119,7 @@ const ResumeStudio = () => {
   if (showEditor) {
     return (
       <>
-        <ResumeEditor resumeData={resumeData} />
+        <ResumeEditor resumeData={generatedResume} />
         <CurtainTransition
           isOpen={!showCurtain}
           onComplete={handleCurtainComplete}

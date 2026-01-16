@@ -20,14 +20,46 @@ const GeneratedResume = sequelize.define(
       allowNull: true,
     },
 
-    resume_html: {
+    // Structured resume sections stored as JSON
+    personal_info: {
+      type: DataTypes.JSON,
+      allowNull: true,
+      // { name, title, email, phone, location, linkedin, github }
+    },
+
+    summary: {
       type: DataTypes.TEXT,
       allowNull: true,
     },
 
-    generated_text: {
-      type: DataTypes.TEXT,
+    experience: {
+      type: DataTypes.JSON,
       allowNull: true,
+      // [{ position, company, startDate, endDate, location, description }]
+    },
+
+    education: {
+      type: DataTypes.JSON,
+      allowNull: true,
+      // [{ degree, institution, year, gpa, highlights }]
+    },
+
+    skills: {
+      type: DataTypes.JSON,
+      allowNull: true,
+      // { technical: [], soft: [], tools: [] }
+    },
+
+    projects: {
+      type: DataTypes.JSON,
+      allowNull: true,
+      // [{ title, description, technologies, link }]
+    },
+
+    certifications: {
+      type: DataTypes.JSON,
+      allowNull: true,
+      // [{ title, issuer, date }]
     },
 
     match_score: {

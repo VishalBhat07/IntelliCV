@@ -1,10 +1,12 @@
 import { useState, useRef } from "react";
 import toast from "react-hot-toast";
+import { uploadAPI } from "../../services/api";
 
 const JobDescriptionStep = ({ data, onUpdate, onNext, onBack }) => {
   const [jobText, setJobText] = useState(data?.text || "");
   const [jobFile, setJobFile] = useState(data?.file || null);
   const [charCount, setCharCount] = useState(data?.text?.length || 0);
+  const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef(null);
 
   const handleTextChange = (e) => {
@@ -26,9 +28,29 @@ const JobDescriptionStep = ({ data, onUpdate, onNext, onBack }) => {
       return;
     }
 
-    setJobFile(file);
-    onUpdate({ text: jobText, file });
-    toast.success("Job description file uploaded!");
+    setUploading(true);
+    try {
+      const user = JSON.parse(localStorage.getItem("user"));
+      if (!user?.user_id) {
+        toast.error("User not found. Please login again.");
+        setUploading(false);
+        return;
+      }
+
+      // Upload the file with type "JobDescription"
+      await uploadAPI.uploadFiles(user.user_id, [file], "JobDescription");
+
+      setJobFile(file);
+      onUpdate({ text: jobText, file });
+      toast.success("Job description file uploaded!");
+    } catch (error) {
+      console.error("Upload failed:", error);
+      toast.error(
+        error.response?.data?.msg || "Upload failed. Please try again."
+      );
+    } finally {
+      setUploading(false);
+    }
   };
 
   const handlePasteFromClipboard = async () => {

@@ -27,12 +27,28 @@ const Education = sequelize.define(
     grade: {
       type: DataTypes.STRING,
     },
+    start_year: {
+      type: DataTypes.STRING,
+    },
     completion_year: {
       type: DataTypes.STRING,
     },
     highlights: {
       type: DataTypes.JSON,
       allowNull: true,
+    },
+
+    // File upload fields
+    mongo_file_id: {
+      type: DataTypes.STRING,
+    },
+
+    file_name: {
+      type: DataTypes.STRING,
+    },
+
+    file_size: {
+      type: DataTypes.BIGINT,
     },
   },
   {

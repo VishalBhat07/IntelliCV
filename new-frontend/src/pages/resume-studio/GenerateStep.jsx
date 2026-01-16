@@ -1,11 +1,15 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import toast from "react-hot-toast";
+import { resumeAPI, jobDescriptionAPI } from "../../services/api";
 
 const GenerateStep = ({ resumeData, onBack, onComplete }) => {
   const [generating, setGenerating] = useState(true);
   const [progress, setProgress] = useState(0);
   const [currentStep, setCurrentStep] = useState(0);
   const [completed, setCompleted] = useState(false);
+  const [error, setError] = useState(null);
+  const [generatedResume, setGeneratedResume] = useState(null);
+  const hasStarted = useRef(false);
 
   const steps = [
     { label: "Analyzing your education", icon: "school" },
@@ -16,49 +20,107 @@ const GenerateStep = ({ resumeData, onBack, onComplete }) => {
   ];
 
   useEffect(() => {
-    if (!generating) return;
+    if (!generating || hasStarted.current) return;
+    hasStarted.current = true;
 
-    const progressInterval = setInterval(() => {
-      setProgress((prev) => {
-        if (prev >= 100) {
-          clearInterval(progressInterval);
-          setGenerating(false);
-          setCompleted(true);
-          toast.success("Resume generated successfully!");
-          // Trigger transition to editor after brief delay
-          setTimeout(() => {
-            if (onComplete) onComplete();
-          }, 1000);
-          return 100;
+    const generateResume = async () => {
+      try {
+        const user = JSON.parse(localStorage.getItem("user"));
+        if (!user?.user_id) {
+          throw new Error("User not found. Please login again.");
         }
-        return prev + 2;
-      });
-    }, 100);
+        const userId = user.user_id;
 
-    const stepInterval = setInterval(() => {
-      setCurrentStep((prev) => {
-        if (prev >= steps.length - 1) {
-          clearInterval(stepInterval);
-          return prev;
+        // Step 1: Analyze education (already saved in EducationStep)
+        setCurrentStep(0);
+        setProgress(10);
+        await new Promise((r) => setTimeout(r, 500));
+
+        // Step 2: Processing documents (already uploaded in DocumentsStep)
+        setCurrentStep(1);
+        setProgress(30);
+        await new Promise((r) => setTimeout(r, 500));
+
+        // Step 3: Save job description text if provided
+        setCurrentStep(2);
+        setProgress(50);
+        if (resumeData.jobDescription?.text) {
+          await jobDescriptionAPI.save(userId, resumeData.jobDescription.text);
         }
-        return prev + 1;
-      });
-    }, 1000);
+        await new Promise((r) => setTimeout(r, 500));
 
-    return () => {
-      clearInterval(progressInterval);
-      clearInterval(stepInterval);
+        // Step 4: Optimize for ATS (part of process call)
+        setCurrentStep(3);
+        setProgress(70);
+        await new Promise((r) => setTimeout(r, 500));
+
+        // Step 5: Generate resume via LLM processing
+        setCurrentStep(4);
+        setProgress(85);
+        console.log("🚀 Calling resumeAPI.process for user:", userId);
+        const result = await resumeAPI.process(userId);
+        
+        console.log("✅ API Response received:", result);
+        console.log("📄 Resume data:", result.resume);
+        console.log("📊 Match score:", result.matchScore);
+        
+        setProgress(100);
+        setGeneratedResume(result);
+        setCompleted(true);
+        setGenerating(false);
+        toast.success("Resume generated successfully!");
+
+        // Trigger transition to editor after brief delay
+        setTimeout(() => {
+          if (onComplete) {
+            // Pass the actual resume data, not the whole result
+            console.log("📤 Passing resume to editor:", result.resume);
+            onComplete(result.resume);
+          }
+        }, 1500);
+      } catch (err) {
+        console.error("Resume generation failed:", err);
+        setError(err.message || "Failed to generate resume");
+        setGenerating(false);
+        toast.error(err.response?.data?.msg || err.message || "Generation failed");
+      }
     };
-  }, [generating]);
+
+    generateResume();
+  }, [generating, resumeData, onComplete]);
 
   const handleViewResume = () => {
-    // Trigger transition to editor
-    if (onComplete) onComplete();
+    // Trigger transition to editor with generated resume
+    if (onComplete && generatedResume) {
+      console.log("Manually viewing resume:", generatedResume.resume);
+      onComplete(generatedResume.resume);
+    }
   };
 
-  const handleDownload = () => {
-    toast.success("Downloading resume as PDF...");
-    // In real implementation, this would download the PDF
+  const handleDownload = async () => {
+    if (!generatedResume?.resume) {
+      toast.error("No resume content to download");
+      return;
+    }
+    try {
+      toast.loading("Generating PDF...", { id: "pdf-download" });
+      const blob = await resumeAPI.exportPdf(
+        generatedResume.resume,
+        `Resume_${Date.now()}.pdf`
+      );
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `Resume_${Date.now()}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+      toast.success("PDF downloaded!", { id: "pdf-download" });
+    } catch (err) {
+      console.error("PDF download failed:", err);
+      toast.error("Failed to download PDF", { id: "pdf-download" });
+    }
   };
 
   return (

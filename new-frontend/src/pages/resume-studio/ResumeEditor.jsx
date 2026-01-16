@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import toast from "react-hot-toast";
+import { resumeAPI } from "../../services/api";
 
 const ResumeEditor = ({ resumeData }) => {
   const navigate = useNavigate();
@@ -51,12 +52,72 @@ const ResumeEditor = ({ resumeData }) => {
 
   const [aiPrompt, setAiPrompt] = useState("");
 
+  // Load resume data when component mounts or resumeData changes
+  useEffect(() => {
+    if (resumeData) {
+      console.log("Loading resume data:", resumeData);
+      // Update editorData with actual resume data
+      setEditorData({
+        name: resumeData.personal_info?.name || "Your Name",
+        title: resumeData.personal_info?.title || "Your Title",
+        email: resumeData.personal_info?.email || "",
+        phone: resumeData.personal_info?.phone || "",
+        location: resumeData.personal_info?.location || "",
+        summary: resumeData.summary || "",
+        experience: resumeData.experience || [],
+        education: resumeData.education || [],
+        skills: resumeData.skills || { technical: [], tools: [], soft: [] },
+        projects: resumeData.projects || [],
+        certifications: resumeData.certifications || [],
+      });
+    }
+  }, [resumeData]);
+
   const handleSave = () => {
     toast.success("Resume saved successfully!");
   };
 
-  const handleDownload = () => {
-    toast.success("Downloading resume as PDF...");
+  const handleDownload = async () => {
+    try {
+      toast.loading("Generating PDF...", { id: "pdf-download" });
+      
+      // Generate HTML from current editor data
+      const htmlContent = `<!DOCTYPE html>
+<html><head><meta charset="UTF-8"><style>
+body{font-family:Arial,sans-serif;line-height:1.6;color:#333;max-width:800px;margin:0 auto;padding:20px}
+h1{color:#2563eb;margin-bottom:5px;font-size:28px}
+h2{color:#1e40af;border-bottom:2px solid #2563eb;padding-bottom:5px;margin-top:20px;font-size:18px}
+.contact{color:#666;margin-bottom:20px;font-size:14px}
+.item{margin-bottom:15px}
+.item-header{font-weight:bold;color:#1e40af;font-size:16px}
+.item-subheader{color:#666;font-size:14px;margin-top:2px}
+</style></head><body>
+<h1>${editorData.name || 'Your Name'}</h1>
+<div class="contact">
+${editorData.title ? `<div><strong>${editorData.title}</strong></div>` : ''}
+${editorData.email ? `<div>Email: ${editorData.email}</div>` : ''}
+${editorData.phone ? `<div>Phone: ${editorData.phone}</div>` : ''}
+</div>
+${editorData.summary ? `<h2>Summary</h2><p>${editorData.summary}</p>` : ''}
+${editorData.experience?.length > 0 ? `<h2>Experience</h2>${editorData.experience.map(e => `<div class="item"><div class="item-header">${e.position} at ${e.company}</div><div class="item-subheader">${e.startDate} - ${e.endDate}</div><div>${e.description}</div></div>`).join('')}` : ''}
+${editorData.education?.length > 0 ? `<h2>Education</h2>${editorData.education.map(e => `<div class="item"><div class="item-header">${e.degree}</div><div class="item-subheader">${e.institution} | ${e.year}</div></div>`).join('')}` : ''}
+${editorData.skills?.technical?.length > 0 || editorData.skills?.tools?.length > 0 ? `<h2>Skills</h2>${editorData.skills.technical?.length > 0 ? `<div><strong>Technical:</strong> ${editorData.skills.technical.join(', ')}</div>` : ''}${editorData.skills.tools?.length > 0 ? `<div><strong>Tools:</strong> ${editorData.skills.tools.join(', ')}</div>` : ''}` : ''}
+</body></html>`;
+      
+      const blob = await resumeAPI.exportPdf(htmlContent, `Resume.pdf`);
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${editorData.name || 'Resume'}_${new Date().toISOString().split('T')[0]}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+      toast.success("PDF downloaded!", { id: "pdf-download" });
+    } catch (err) {
+      console.error("PDF download failed:", err);
+      toast.error("Failed to download PDF: " + (err.message || "Unknown error"), { id: "pdf-download" });
+    }
   };
 
   const handleOptimize = () => {
@@ -320,39 +381,61 @@ const ResumeEditor = ({ resumeData }) => {
                     <div className="grid grid-cols-[1fr_auto] gap-4 mb-2">
                       <div>
                         <input
-                          className="bg-transparent font-bold text-white focus:outline-none w-full mb-1"
+                          className="bg-transparent font-bold text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50 rounded px-2 py-1 w-full mb-1"
                           type="text"
                           value={exp.position}
-                          readOnly
+                          onChange={(e) => {
+                            const newExp = [...editorData.experience];
+                            newExp[index] = {...newExp[index], position: e.target.value};
+                            setEditorData({...editorData, experience: newExp});
+                          }}
                         />
                         <input
-                          className="bg-transparent text-sm text-blue-500 focus:outline-none w-full"
+                          className="bg-transparent text-sm text-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 rounded px-2 py-1 w-full"
                           type="text"
                           value={exp.company}
-                          readOnly
+                          onChange={(e) => {
+                            const newExp = [...editorData.experience];
+                            newExp[index] = {...newExp[index], company: e.target.value};
+                            setEditorData({...editorData, experience: newExp});
+                          }}
                         />
                       </div>
                       <div className="text-right">
                         <input
-                          className="bg-transparent text-xs text-slate-400 text-right focus:outline-none w-full"
+                          className="bg-transparent text-xs text-slate-400 text-right focus:outline-none focus:ring-2 focus:ring-blue-500/50 rounded px-2 py-1 w-full"
                           type="text"
+                          placeholder="Start - End"
                           value={`${exp.startDate} - ${exp.endDate}`}
-                          readOnly
+                          onChange={(e) => {
+                            const dates = e.target.value.split(' - ');
+                            const newExp = [...editorData.experience];
+                            newExp[index] = {...newExp[index], startDate: dates[0] || '', endDate: dates[1] || ''};
+                            setEditorData({...editorData, experience: newExp});
+                          }}
                         />
                         <input
-                          className="bg-transparent text-xs text-slate-400 text-right focus:outline-none w-full"
+                          className="bg-transparent text-xs text-slate-400 text-right focus:outline-none focus:ring-2 focus:ring-blue-500/50 rounded px-2 py-1 w-full"
                           type="text"
                           value={exp.location}
-                          readOnly
+                          onChange={(e) => {
+                            const newExp = [...editorData.experience];
+                            newExp[index] = {...newExp[index], location: e.target.value};
+                            setEditorData({...editorData, experience: newExp});
+                          }}
                         />
                       </div>
                     </div>
                     <div className="mt-3 relative pl-4 border-l-2 border-white/5">
                       <textarea
-                        className="w-full bg-transparent text-slate-300 text-sm leading-relaxed resize-none focus:outline-none min-h-[100px]"
+                        className="w-full bg-transparent text-slate-300 text-sm leading-relaxed resize-none focus:outline-none focus:ring-2 focus:ring-blue-500/50 rounded px-2 py-1 min-h-[100px]"
                         spellCheck="false"
                         value={exp.description}
-                        readOnly
+                        onChange={(e) => {
+                          const newExp = [...editorData.experience];
+                          newExp[index] = {...newExp[index], description: e.target.value};
+                          setEditorData({...editorData, experience: newExp});
+                        }}
                       />
                     </div>
                   </div>
@@ -380,30 +463,199 @@ const ResumeEditor = ({ resumeData }) => {
                     <div className="grid grid-cols-[1fr_auto] gap-4">
                       <div>
                         <input
-                          className="bg-transparent font-bold text-white focus:outline-none w-full mb-1"
+                          className="bg-transparent font-bold text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50 rounded px-2 py-1 w-full mb-1"
                           type="text"
                           value={edu.degree}
-                          readOnly
+                          onChange={(e) => {
+                            const newEdu = [...editorData.education];
+                            newEdu[index] = {...newEdu[index], degree: e.target.value};
+                            setEditorData({...editorData, education: newEdu});
+                          }}
                         />
                         <input
-                          className="bg-transparent text-sm text-blue-500 focus:outline-none w-full"
+                          className="bg-transparent text-sm text-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 rounded px-2 py-1 w-full"
                           type="text"
                           value={edu.institution}
-                          readOnly
+                          onChange={(e) => {
+                            const newEdu = [...editorData.education];
+                            newEdu[index] = {...newEdu[index], institution: e.target.value};
+                            setEditorData({...editorData, education: newEdu});
+                          }}
                         />
                       </div>
                       <div className="text-right">
                         <input
-                          className="bg-transparent text-xs text-slate-400 text-right focus:outline-none w-full"
+                          className="bg-transparent text-xs text-slate-400 text-right focus:outline-none focus:ring-2 focus:ring-blue-500/50 rounded px-2 py-1 w-full"
                           type="text"
                           value={edu.year}
-                          readOnly
+                          onChange={(e) => {
+                            const newEdu = [...editorData.education];
+                            newEdu[index] = {...newEdu[index], year: e.target.value};
+                            setEditorData({...editorData, education: newEdu});
+                          }}
                         />
                       </div>
                     </div>
                   </div>
                 ))}
               </div>
+
+              {/* Skills */}
+              {editorData.skills && (editorData.skills.technical?.length > 0 || editorData.skills.tools?.length > 0 || editorData.skills.soft?.length > 0) && (
+                <div className="space-y-4">
+                  <h3 className="text-slate-400 text-xs font-bold uppercase tracking-wider">
+                    Skills
+                  </h3>
+                  <div className="rounded-xl border border-white/5 bg-[#1E293B]/40 p-5 space-y-3">
+                    {editorData.skills.technical?.length > 0 && (
+                      <div>
+                        <div className="text-xs text-slate-500 mb-1">Technical Skills</div>
+                        <input
+                          className="w-full bg-transparent text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50 rounded px-2 py-1"
+                          type="text"
+                          value={editorData.skills.technical.join(", ")}
+                          onChange={(e) => {
+                            const newSkills = {...editorData.skills, technical: e.target.value.split(",").map(s => s.trim()).filter(Boolean)};
+                            setEditorData({...editorData, skills: newSkills});
+                          }}
+                          placeholder="e.g., JavaScript, Python, React"
+                        />
+                      </div>
+                    )}
+                    {editorData.skills.tools?.length > 0 && (
+                      <div>
+                        <div className="text-xs text-slate-500 mb-1">Tools & Technologies</div>
+                        <input
+                          className="w-full bg-transparent text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50 rounded px-2 py-1"
+                          type="text"
+                          value={editorData.skills.tools.join(", ")}
+                          onChange={(e) => {
+                            const newSkills = {...editorData.skills, tools: e.target.value.split(",").map(s => s.trim()).filter(Boolean)};
+                            setEditorData({...editorData, skills: newSkills});
+                          }}
+                          placeholder="e.g., Git, Docker, AWS"
+                        />
+                      </div>
+                    )}
+                    {editorData.skills.soft?.length > 0 && (
+                      <div>
+                        <div className="text-xs text-slate-500 mb-1">Soft Skills</div>
+                        <input
+                          className="w-full bg-transparent text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50 rounded px-2 py-1"
+                          type="text"
+                          value={editorData.skills.soft.join(", ")}
+                          onChange={(e) => {
+                            const newSkills = {...editorData.skills, soft: e.target.value.split(",").map(s => s.trim()).filter(Boolean)};
+                            setEditorData({...editorData, skills: newSkills});
+                          }}
+                          placeholder="e.g., Leadership, Communication"
+                        />
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Projects */}
+              {editorData.projects?.length > 0 && (
+                <div className="space-y-4">
+                  <h3 className="text-slate-400 text-xs font-bold uppercase tracking-wider">
+                    Projects
+                  </h3>
+                  {editorData.projects.map((project, idx) => (
+                    <div
+                      key={idx}
+                      className="rounded-xl border border-white/5 bg-[#1E293B]/40 p-5"
+                    >
+                      <input
+                        className="font-bold text-white bg-transparent focus:outline-none focus:ring-2 focus:ring-blue-500/50 rounded px-2 py-1 w-full mb-2"
+                        type="text"
+                        value={project.title}
+                        onChange={(e) => {
+                          const newProjects = [...editorData.projects];
+                          newProjects[idx] = {...newProjects[idx], title: e.target.value};
+                          setEditorData({...editorData, projects: newProjects});
+                        }}
+                        placeholder="Project Title"
+                      />
+                      <textarea
+                        className="text-slate-300 text-sm bg-transparent focus:outline-none focus:ring-2 focus:ring-blue-500/50 rounded px-2 py-1 w-full mb-2 resize-none min-h-[60px]"
+                        value={project.description}
+                        onChange={(e) => {
+                          const newProjects = [...editorData.projects];
+                          newProjects[idx] = {...newProjects[idx], description: e.target.value};
+                          setEditorData({...editorData, projects: newProjects});
+                        }}
+                        placeholder="Project Description"
+                      />
+                      {project.technologies?.length > 0 && (
+                        <input
+                          className="text-xs text-blue-400 bg-transparent focus:outline-none focus:ring-2 focus:ring-blue-500/50 rounded px-2 py-1 w-full"
+                          type="text"
+                          value={project.technologies.join(", ")}
+                          onChange={(e) => {
+                            const newProjects = [...editorData.projects];
+                            newProjects[idx] = {...newProjects[idx], technologies: e.target.value.split(",").map(s => s.trim()).filter(Boolean)};
+                            setEditorData({...editorData, projects: newProjects});
+                          }}
+                          placeholder="Technologies (comma-separated)"
+                        />
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Certifications */}
+              {editorData.certifications?.length > 0 && (
+                <div className="space-y-4">
+                  <h3 className="text-slate-400 text-xs font-bold uppercase tracking-wider">
+                    Certifications
+                  </h3>
+                  {editorData.certifications.map((cert, idx) => (
+                    <div
+                      key={idx}
+                      className="rounded-xl border border-white/5 bg-[#1E293B]/40 p-5"
+                    >
+                      <div className="flex justify-between items-start gap-4">
+                        <input
+                          className="font-bold text-white bg-transparent focus:outline-none focus:ring-2 focus:ring-blue-500/50 rounded px-2 py-1 flex-1"
+                          type="text"
+                          value={cert.title}
+                          onChange={(e) => {
+                            const newCerts = [...editorData.certifications];
+                            newCerts[idx] = {...newCerts[idx], title: e.target.value};
+                            setEditorData({...editorData, certifications: newCerts});
+                          }}
+                          placeholder="Certification Title"
+                        />
+                        <input
+                          className="text-xs text-slate-400 bg-transparent focus:outline-none focus:ring-2 focus:ring-blue-500/50 rounded px-2 py-1 w-32"
+                          type="text"
+                          value={cert.date}
+                          onChange={(e) => {
+                            const newCerts = [...editorData.certifications];
+                            newCerts[idx] = {...newCerts[idx], date: e.target.value};
+                            setEditorData({...editorData, certifications: newCerts});
+                          }}
+                          placeholder="Date"
+                        />
+                      </div>
+                      <input
+                        className="text-sm text-slate-300 mt-1 bg-transparent focus:outline-none focus:ring-2 focus:ring-blue-500/50 rounded px-2 py-1 w-full"
+                        type="text"
+                        value={cert.issuer}
+                        onChange={(e) => {
+                          const newCerts = [...editorData.certifications];
+                          newCerts[idx] = {...newCerts[idx], issuer: e.target.value};
+                          setEditorData({...editorData, certifications: newCerts});
+                        }}
+                        placeholder="Issuing Organization"
+                      />
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
 
@@ -562,24 +814,70 @@ const ResumeEditor = ({ resumeData }) => {
                   Skills
                 </h2>
                 <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-gray-700">
-                  <div className="flex">
-                    <span className="font-bold mr-2 w-24">Languages:</span>{" "}
-                    JavaScript, TypeScript, Python, Java
-                  </div>
-                  <div className="flex">
-                    <span className="font-bold mr-2 w-24">Frontend:</span>{" "}
-                    React, Vue.js, Tailwind CSS, Next.js
-                  </div>
-                  <div className="flex">
-                    <span className="font-bold mr-2 w-24">Backend:</span>{" "}
-                    Node.js, Express, Django, PostgreSQL
-                  </div>
-                  <div className="flex">
-                    <span className="font-bold mr-2 w-24">Tools:</span> Docker,
-                    AWS, Git, Jira
-                  </div>
+                  {editorData.skills?.technical?.length > 0 && (
+                    <div className="flex">
+                      <span className="font-bold mr-2 w-24">Technical:</span>{" "}
+                      {editorData.skills.technical.join(", ")}
+                    </div>
+                  )}
+                  {editorData.skills?.tools?.length > 0 && (
+                    <div className="flex">
+                      <span className="font-bold mr-2 w-24">Tools:</span>{" "}
+                      {editorData.skills.tools.join(", ")}
+                    </div>
+                  )}
+                  {editorData.skills?.soft?.length > 0 && (
+                    <div className="flex col-span-2">
+                      <span className="font-bold mr-2 w-24">Soft Skills:</span>{" "}
+                      {editorData.skills.soft.join(", ")}
+                    </div>
+                  )}
                 </div>
               </div>
+
+              {/* Projects Section */}
+              {editorData.projects?.length > 0 && (
+                <div className="mb-4">
+                  <h2 className="text-sm font-bold text-gray-800 uppercase border-b border-gray-300 pb-1 mb-3">
+                    Projects
+                  </h2>
+                  {editorData.projects.map((project, idx) => (
+                    <div key={idx} className="mb-3">
+                      <div className="font-bold text-gray-800">
+                        {project.title}
+                      </div>
+                      <div className="text-gray-700 text-[10.5px] mb-1">
+                        {project.description}
+                      </div>
+                      {project.technologies?.length > 0 && (
+                        <div className="text-gray-600 text-[10px] italic">
+                          Technologies: {project.technologies.join(", ")}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Certifications Section */}
+              {editorData.certifications?.length > 0 && (
+                <div className="mb-4">
+                  <h2 className="text-sm font-bold text-gray-800 uppercase border-b border-gray-300 pb-1 mb-3">
+                    Certifications
+                  </h2>
+                  {editorData.certifications.map((cert, idx) => (
+                    <div key={idx} className="mb-2">
+                      <div className="flex justify-between">
+                        <span className="font-bold text-gray-800">{cert.title}</span>
+                        <span className="text-gray-600 text-[10px]">{cert.date}</span>
+                      </div>
+                      <div className="text-gray-700 text-[10.5px]">
+                        {cert.issuer}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         </div>
