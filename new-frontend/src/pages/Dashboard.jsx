@@ -11,6 +11,7 @@ const Dashboard = () => {
   const [resumes, setResumes] = useState([]);
   const [loadingResumes, setLoadingResumes] = useState(true);
   const [showEditProfile, setShowEditProfile] = useState(false);
+  const [openMenuId, setOpenMenuId] = useState(null); // Track which card's menu is open
   const [profileForm, setProfileForm] = useState({
     first_name: "",
     middle_name: "",
@@ -510,48 +511,85 @@ ${resume.projects?.length > 0 ? `<h2>Projects</h2>${resume.projects.map((p) => `
                           <h4 className="text-white font-bold text-base truncate pr-2 group-hover:text-blue-500 transition-colors">
                             {resume.title || "Untitled Resume"}
                           </h4>
-                          <button className="text-slate-400 hover:text-white transition-colors">
-                            <span className="material-symbols-outlined">
-                              more_vert
-                            </span>
-                          </button>
+                          {/* Three dots menu button */}
+                          <div className="relative">
+                            <button 
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setOpenMenuId(openMenuId === resume.resume_id ? null : resume.resume_id);
+                              }}
+                              className="text-slate-400 hover:text-white transition-colors p-1 rounded hover:bg-white/10"
+                            >
+                              <span className="material-symbols-outlined">
+                                more_vert
+                              </span>
+                            </button>
+                            
+                            {/* Dropdown Menu */}
+                            {openMenuId === resume.resume_id && (
+                              <>
+                                {/* Backdrop to close menu when clicking outside */}
+                                <div 
+                                  className="fixed inset-0 z-10" 
+                                  onClick={() => setOpenMenuId(null)}
+                                ></div>
+                                <div className="absolute right-0 top-full mt-1 w-40 bg-[#1E293B] border border-white/10 rounded-lg shadow-xl z-20 overflow-hidden">
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleEditResume(resume.resume_id);
+                                      setOpenMenuId(null);
+                                    }}
+                                    className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-white hover:bg-blue-500/20 hover:text-blue-400 transition-colors"
+                                  >
+                                    <span className="material-symbols-outlined text-lg">edit</span>
+                                    Edit
+                                  </button>
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleDownloadResume(resume);
+                                      setOpenMenuId(null);
+                                    }}
+                                    className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-white hover:bg-emerald-500/20 hover:text-emerald-400 transition-colors"
+                                  >
+                                    <span className="material-symbols-outlined text-lg">download</span>
+                                    Download PDF
+                                  </button>
+                                  <div className="h-px bg-white/5"></div>
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleDeleteResume(
+                                        resume.resume_id,
+                                        resume.title || "Untitled Resume",
+                                      );
+                                      setOpenMenuId(null);
+                                    }}
+                                    className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-red-400 hover:bg-red-500/20 transition-colors"
+                                  >
+                                    <span className="material-symbols-outlined text-lg">delete</span>
+                                    Delete
+                                  </button>
+                                </div>
+                              </>
+                            )}
+                          </div>
                         </div>
-                        <p className="text-slate-400 text-xs mb-5">
+                        <p className="text-slate-400 text-xs mb-3">
                           Target: {resume.target || "General"} •{" "}
                           {formatTimeAgo(resume.timestamp)}
                         </p>
-                        <div className="mt-auto flex gap-2">
+                        {/* Quick Edit button - single primary action */}
+                        <div className="mt-auto">
                           <button
                             onClick={() => handleEditResume(resume.resume_id)}
-                            className="flex-1 bg-white/5 hover:bg-blue-500 hover:text-white text-white text-xs font-semibold py-2 rounded-lg transition-colors flex items-center justify-center gap-1.5 border border-white/5 hover:border-blue-500"
+                            className="w-full bg-white/5 hover:bg-blue-500 hover:text-white text-white text-xs font-semibold py-2.5 rounded-lg transition-colors flex items-center justify-center gap-1.5 border border-white/5 hover:border-blue-500"
                           >
                             <span className="material-symbols-outlined text-sm">
                               edit
                             </span>{" "}
-                            Edit
-                          </button>
-                          <button
-                            onClick={() => handleDownloadResume(resume)}
-                            className="w-8 h-8 flex items-center justify-center rounded-lg border border-white/5 bg-white/5 text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
-                            title="Download PDF"
-                          >
-                            <span className="material-symbols-outlined text-lg">
-                              download
-                            </span>
-                          </button>
-                          <button
-                            onClick={() =>
-                              handleDeleteResume(
-                                resume.resume_id,
-                                resume.title || "Untitled Resume",
-                              )
-                            }
-                            className="w-8 h-8 flex items-center justify-center rounded-lg border border-white/5 bg-white/5 text-slate-400 hover:text-red-400 hover:bg-red-500/10 hover:border-red-500/20 transition-colors"
-                            title="Delete Resume"
-                          >
-                            <span className="material-symbols-outlined text-lg">
-                              delete
-                            </span>
+                            Edit Resume
                           </button>
                         </div>
                       </div>

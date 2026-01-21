@@ -20,6 +20,10 @@ const ResumeEditor = ({ resumeData, resumeId: existingResumeId }) => {
   const [canUndo, setCanUndo] = useState(false);
   const [changedFields, setChangedFields] = useState({});
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  
+  // Resume title state (separate from personal info title)
+  const [resumeTitle, setResumeTitle] = useState("Untitled Resume");
+  const [isEditingTitle, setIsEditingTitle] = useState(false);
 
   // Sample resume data - will be replaced with actual generated data
   const [editorData, setEditorData] = useState({
@@ -91,6 +95,14 @@ const ResumeEditor = ({ resumeData, resumeId: existingResumeId }) => {
       // Update editorData with actual resume data
       setEditorData(newEditorData);
       
+      // Set resume title (for dashboard display)
+      if (resumeData.title) {
+        setResumeTitle(resumeData.title);
+      } else {
+        // Default title from personal info
+        setResumeTitle(`${newEditorData.name} - ${newEditorData.title}`);
+      }
+      
       // Store original resume in localStorage for undo functionality
       // Only store if not already stored (first load)
       const storedOriginal = localStorage.getItem(`originalResume_${user?.user_id}`);
@@ -120,7 +132,7 @@ const ResumeEditor = ({ resumeData, resumeId: existingResumeId }) => {
       const resumeToSave = {
         user_id: user?.user_id,
         resume_id: currentResumeId, // Will be null for new resumes
-        title: `${editorData.name} - ${editorData.title}`,
+        title: resumeTitle, // Use the editable resume title
         target: editorData.title,
         personal_info: {
           name: editorData.name,
@@ -400,11 +412,45 @@ ${editorData.skills?.technical?.length > 0 || editorData.skills?.tools?.length >
           <div className="w-8 h-8 flex items-center justify-center text-blue-500">
             <span className="material-symbols-outlined text-3xl">resume</span>
           </div>
-          <div>
-            <h2 className="text-white text-base font-bold leading-tight">
-              Software Engineer Resume
-            </h2>
-            <p className="text-xs text-slate-400">Last edited 2 minutes ago</p>
+          <div className="flex flex-col">
+            {isEditingTitle ? (
+              <input
+                type="text"
+                value={resumeTitle}
+                onChange={(e) => setResumeTitle(e.target.value)}
+                onBlur={() => setIsEditingTitle(false)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    setIsEditingTitle(false);
+                    setHasUnsavedChanges(true);
+                  }
+                  if (e.key === 'Escape') {
+                    setIsEditingTitle(false);
+                  }
+                }}
+                className="text-white text-base font-bold leading-tight bg-transparent border-b border-blue-500 focus:outline-none px-0 py-0.5 w-64"
+                autoFocus
+                placeholder="Enter resume title..."
+              />
+            ) : (
+              <h2 
+                onClick={() => setIsEditingTitle(true)}
+                className="text-white text-base font-bold leading-tight cursor-pointer hover:text-blue-400 transition-colors flex items-center gap-2 group"
+                title="Click to edit title"
+              >
+                {resumeTitle}
+                <span className="material-symbols-outlined text-sm text-slate-500 opacity-0 group-hover:opacity-100 transition-opacity">
+                  edit
+                </span>
+              </h2>
+            )}
+            <p className="text-xs text-slate-400">
+              {hasUnsavedChanges ? (
+                <span className="text-amber-400">Unsaved changes</span>
+              ) : (
+                "Click title to edit"
+              )}
+            </p>
           </div>
         </div>
         <div className="flex items-center gap-3">
