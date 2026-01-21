@@ -8,7 +8,7 @@ const ResumeEditor = ({ resumeData, resumeId: existingResumeId }) => {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
   const [activeTab, setActiveTab] = useState("edit");
-  const [zoom, setZoom] = useState(100);
+  const [zoom, setZoom] = useState(150);
   const [isSaving, setIsSaving] = useState(false);
   const [isRegenerating, setIsRegenerating] = useState(false);
   const [currentResumeId, setCurrentResumeId] = useState(
@@ -466,14 +466,15 @@ ${editorData.skills?.technical?.length > 0 || editorData.skills?.tools?.length >
               Edit
             </button>
             <button
-              onClick={() => setActiveTab("design")}
-              className={`px-3 py-1.5 rounded text-xs font-medium transition-colors ${
-                activeTab === "design"
+              onClick={() => setActiveTab("preview")}
+              className={`px-3 py-1.5 rounded text-xs font-medium transition-colors flex items-center gap-1 ${
+                activeTab === "preview"
                   ? "bg-blue-500/10 text-blue-500"
                   : "text-slate-400 hover:text-white hover:bg-white/5"
               }`}
             >
-              Design
+              <span className="material-symbols-outlined text-sm">visibility</span>
+              Preview
             </button>
           </div>
           <button
@@ -543,7 +544,8 @@ ${editorData.skills?.technical?.length > 0 || editorData.skills?.tools?.length >
           </div>
         )}
         
-        {/* Editor Panel */}
+        {/* Editor Panel - Only visible in Edit mode */}
+        {activeTab === "edit" && (
         <div className={`flex-1 flex flex-col min-w-0 border-r border-white/10 bg-[#0F172A] relative ${isRegenerating ? 'pointer-events-none' : ''}`}>
           {/* Toolbar */}
           <div className="flex-none px-6 py-3 border-b border-white/5 bg-[#1E293B]/50 flex items-center justify-between gap-4 overflow-x-auto">
@@ -1175,9 +1177,10 @@ ${editorData.skills?.technical?.length > 0 || editorData.skills?.tools?.length >
             </div>
           </div>
         </div>
+        )}
 
-        {/* Preview Panel */}
-        <div className="w-[50%] hidden xl:flex flex-col bg-slate-900 border-l border-white/10 relative">
+        {/* Preview Panel - Full width in Preview mode, 50% in Edit mode */}
+        <div className={`${activeTab === "preview" ? "flex-1" : "w-[50%] hidden xl:flex"} flex-col bg-slate-900 border-l border-white/10 relative flex`}>
           <div className="flex-none p-4 flex items-center justify-between bg-slate-900/50 backdrop-blur z-10">
             <div className="flex items-center gap-3">
               <span className="text-slate-400 text-xs font-bold uppercase tracking-wider">

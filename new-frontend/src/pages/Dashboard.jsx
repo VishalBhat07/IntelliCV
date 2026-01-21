@@ -537,17 +537,6 @@ ${resume.projects?.length > 0 ? `<h2>Projects</h2>${resume.projects.map((p) => `
                                   <button
                                     onClick={(e) => {
                                       e.stopPropagation();
-                                      handleEditResume(resume.resume_id);
-                                      setOpenMenuId(null);
-                                    }}
-                                    className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-white hover:bg-blue-500/20 hover:text-blue-400 transition-colors"
-                                  >
-                                    <span className="material-symbols-outlined text-lg">edit</span>
-                                    Edit
-                                  </button>
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
                                       handleDownloadResume(resume);
                                       setOpenMenuId(null);
                                     }}
