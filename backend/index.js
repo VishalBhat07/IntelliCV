@@ -21,8 +21,8 @@ require("./models/GeneratedResume.js");
 const app = express();
 
 app.use(cors());
-app.use(express.json({ limit: "2mb" }));
-app.use(express.urlencoded({ extended: true, limit: "2mb" }));
+app.use(express.json({ limit: "10mb" }));
+app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 
 let browserPromise;
 
@@ -203,7 +203,7 @@ app.post("/api/export-pdf", async (req, res) => {
     res.setHeader("Content-Type", "application/pdf");
     res.setHeader(
       "Content-Disposition",
-      `attachment; filename="${safeFileName}"`
+      `attachment; filename="${safeFileName}"`,
     );
     res.setHeader("Content-Length", pdfBuffer.length);
 

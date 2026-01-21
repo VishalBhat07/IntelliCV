@@ -34,6 +34,30 @@ const User = sequelize.define(
       type: DataTypes.TEXT,
     },
 
+    // Profile picture stored as base64 (needs LONGTEXT for large images)
+    profile_picture: {
+      type: DataTypes.TEXT("long"),
+      allowNull: true,
+    },
+
+    // Location
+    location: {
+      type: DataTypes.STRING,
+      allowNull: true,
+    },
+
+    // Portfolio/Website URL
+    portfolio: {
+      type: DataTypes.STRING,
+      allowNull: true,
+    },
+
+    // Job title/profession
+    title: {
+      type: DataTypes.STRING,
+      allowNull: true,
+    },
+
     // Registration date
     registration_date: {
       type: DataTypes.DATE,
@@ -54,7 +78,7 @@ const User = sequelize.define(
   },
   {
     timestamps: false,
-  }
+  },
 );
 
 module.exports = User;

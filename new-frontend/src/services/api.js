@@ -20,7 +20,7 @@ api.interceptors.request.use(
   },
   (error) => {
     return Promise.reject(error);
-  }
+  },
 );
 
 // Auth API calls
@@ -55,6 +55,21 @@ export const authAPI = {
 
   isAuthenticated: () => {
     return !!localStorage.getItem("token");
+  },
+
+  // Get user profile
+  getProfile: async (userId) => {
+    const response = await api.get(`/auth/profile/${userId}`);
+    return response.data;
+  },
+
+  // Update user profile
+  updateProfile: async (userId, profileData) => {
+    const response = await api.put(`/auth/profile/${userId}`, profileData);
+    if (response.data.user) {
+      localStorage.setItem("user", JSON.stringify(response.data.user));
+    }
+    return response.data;
   },
 };
 
@@ -133,13 +148,31 @@ export const resumeAPI = {
     return response.data;
   },
 
+  // Get a specific resume by ID
+  getById: async (resumeId) => {
+    const response = await api.get(`/resume/single/${resumeId}`);
+    return response.data;
+  },
+
+  // Save or update a resume
+  save: async (resumeData) => {
+    const response = await api.post("/resume/save", resumeData);
+    return response.data;
+  },
+
   // Export resume as PDF
   exportPdf: async (html, fileName) => {
     const response = await api.post(
       "/export-pdf",
       { html, fileName },
-      { responseType: "blob" }
+      { responseType: "blob" },
     );
+    return response.data;
+  },
+
+  // Delete a resume
+  delete: async (resumeId) => {
+    const response = await api.delete(`/resume/${resumeId}`);
     return response.data;
   },
 };

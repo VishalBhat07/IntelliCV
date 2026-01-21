@@ -57,6 +57,14 @@ function App() {
               </ProtectedRoute>
             }
           />
+          <Route
+            path="/resume-studio/:resumeId"
+            element={
+              <ProtectedRoute>
+                <ResumeStudio />
+              </ProtectedRoute>
+            }
+          />
         </Routes>
       </AuthProvider>
     </Router>

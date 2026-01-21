@@ -4,11 +4,15 @@ import { useAuth } from "../../context/AuthContext";
 import toast from "react-hot-toast";
 import { resumeAPI } from "../../services/api";
 
-const ResumeEditor = ({ resumeData }) => {
+const ResumeEditor = ({ resumeData, resumeId: existingResumeId }) => {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
   const [activeTab, setActiveTab] = useState("edit");
   const [zoom, setZoom] = useState(100);
+  const [isSaving, setIsSaving] = useState(false);
+  const [currentResumeId, setCurrentResumeId] = useState(
+    existingResumeId || null,
+  );
 
   // Sample resume data - will be replaced with actual generated data
   const [editorData, setEditorData] = useState({
@@ -52,6 +56,13 @@ const ResumeEditor = ({ resumeData }) => {
 
   const [aiPrompt, setAiPrompt] = useState("");
 
+  // Update currentResumeId when existingResumeId prop changes
+  useEffect(() => {
+    if (existingResumeId) {
+      setCurrentResumeId(existingResumeId);
+    }
+  }, [existingResumeId]);
+
   // Load resume data when component mounts or resumeData changes
   useEffect(() => {
     if (resumeData) {
@@ -73,14 +84,51 @@ const ResumeEditor = ({ resumeData }) => {
     }
   }, [resumeData]);
 
-  const handleSave = () => {
-    toast.success("Resume saved successfully!");
+  const handleSave = async () => {
+    try {
+      setIsSaving(true);
+
+      // Prepare resume data to save
+      const resumeToSave = {
+        user_id: user?.user_id,
+        resume_id: currentResumeId, // Will be null for new resumes
+        title: `${editorData.name} - ${editorData.title}`,
+        target: editorData.title,
+        personal_info: {
+          name: editorData.name,
+          title: editorData.title,
+          email: editorData.email,
+          phone: editorData.phone,
+          location: editorData.location,
+        },
+        summary: editorData.summary,
+        experience: editorData.experience,
+        education: editorData.education,
+        skills: editorData.skills,
+        projects: editorData.projects,
+        certifications: editorData.certifications,
+      };
+
+      const response = await resumeAPI.save(resumeToSave);
+
+      // Update the resume ID if this was a new save
+      if (response.resume?.resume_id && !currentResumeId) {
+        setCurrentResumeId(response.resume.resume_id);
+      }
+
+      toast.success("Resume saved successfully!");
+    } catch (error) {
+      console.error("Failed to save resume:", error);
+      toast.error("Failed to save resume");
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleDownload = async () => {
     try {
       toast.loading("Generating PDF...", { id: "pdf-download" });
-      
+
       // Generate HTML from current editor data
       const htmlContent = `<!DOCTYPE html>
 <html><head><meta charset="UTF-8"><style>
@@ -92,23 +140,23 @@ h2{color:#1e40af;border-bottom:2px solid #2563eb;padding-bottom:5px;margin-top:2
 .item-header{font-weight:bold;color:#1e40af;font-size:16px}
 .item-subheader{color:#666;font-size:14px;margin-top:2px}
 </style></head><body>
-<h1>${editorData.name || 'Your Name'}</h1>
+<h1>${editorData.name || "Your Name"}</h1>
 <div class="contact">
-${editorData.title ? `<div><strong>${editorData.title}</strong></div>` : ''}
-${editorData.email ? `<div>Email: ${editorData.email}</div>` : ''}
-${editorData.phone ? `<div>Phone: ${editorData.phone}</div>` : ''}
+${editorData.title ? `<div><strong>${editorData.title}</strong></div>` : ""}
+${editorData.email ? `<div>Email: ${editorData.email}</div>` : ""}
+${editorData.phone ? `<div>Phone: ${editorData.phone}</div>` : ""}
 </div>
-${editorData.summary ? `<h2>Summary</h2><p>${editorData.summary}</p>` : ''}
-${editorData.experience?.length > 0 ? `<h2>Experience</h2>${editorData.experience.map(e => `<div class="item"><div class="item-header">${e.position} at ${e.company}</div><div class="item-subheader">${e.startDate} - ${e.endDate}</div><div>${e.description}</div></div>`).join('')}` : ''}
-${editorData.education?.length > 0 ? `<h2>Education</h2>${editorData.education.map(e => `<div class="item"><div class="item-header">${e.degree}</div><div class="item-subheader">${e.institution} | ${e.year}</div></div>`).join('')}` : ''}
-${editorData.skills?.technical?.length > 0 || editorData.skills?.tools?.length > 0 ? `<h2>Skills</h2>${editorData.skills.technical?.length > 0 ? `<div><strong>Technical:</strong> ${editorData.skills.technical.join(', ')}</div>` : ''}${editorData.skills.tools?.length > 0 ? `<div><strong>Tools:</strong> ${editorData.skills.tools.join(', ')}</div>` : ''}` : ''}
+${editorData.summary ? `<h2>Summary</h2><p>${editorData.summary}</p>` : ""}
+${editorData.experience?.length > 0 ? `<h2>Experience</h2>${editorData.experience.map((e) => `<div class="item"><div class="item-header">${e.position} at ${e.company}</div><div class="item-subheader">${e.startDate} - ${e.endDate}</div><div>${e.description}</div></div>`).join("")}` : ""}
+${editorData.education?.length > 0 ? `<h2>Education</h2>${editorData.education.map((e) => `<div class="item"><div class="item-header">${e.degree}</div><div class="item-subheader">${e.institution} | ${e.year}</div></div>`).join("")}` : ""}
+${editorData.skills?.technical?.length > 0 || editorData.skills?.tools?.length > 0 ? `<h2>Skills</h2>${editorData.skills.technical?.length > 0 ? `<div><strong>Technical:</strong> ${editorData.skills.technical.join(", ")}</div>` : ""}${editorData.skills.tools?.length > 0 ? `<div><strong>Tools:</strong> ${editorData.skills.tools.join(", ")}</div>` : ""}` : ""}
 </body></html>`;
-      
+
       const blob = await resumeAPI.exportPdf(htmlContent, `Resume.pdf`);
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `${editorData.name || 'Resume'}_${new Date().toISOString().split('T')[0]}.pdf`;
+      a.download = `${editorData.name || "Resume"}_${new Date().toISOString().split("T")[0]}.pdf`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
@@ -116,7 +164,10 @@ ${editorData.skills?.technical?.length > 0 || editorData.skills?.tools?.length >
       toast.success("PDF downloaded!", { id: "pdf-download" });
     } catch (err) {
       console.error("PDF download failed:", err);
-      toast.error("Failed to download PDF: " + (err.message || "Unknown error"), { id: "pdf-download" });
+      toast.error(
+        "Failed to download PDF: " + (err.message || "Unknown error"),
+        { id: "pdf-download" },
+      );
     }
   };
 
@@ -196,20 +247,32 @@ ${editorData.skills?.technical?.length > 0 || editorData.skills?.tools?.length >
           </div>
           <button
             onClick={handleSave}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-[#1E293B] border border-white/10 text-white font-bold text-sm hover:bg-white/5 transition-colors"
+            disabled={isSaving}
+            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-[#1E293B] border border-white/10 text-white font-bold text-sm hover:bg-white/5 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <span className="material-symbols-outlined text-lg">save</span>
-            <span className="hidden sm:inline">Save</span>
+            {isSaving ? (
+              <>
+                <span className="material-symbols-outlined text-lg animate-spin">
+                  progress_activity
+                </span>
+                <span className="hidden sm:inline">Saving...</span>
+              </>
+            ) : (
+              <>
+                <span className="material-symbols-outlined text-lg">save</span>
+                <span className="hidden sm:inline">Save</span>
+              </>
+            )}
           </button>
           <button
             onClick={handleDownload}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-500 text-white font-bold text-sm shadow-[0_0_15px_rgba(59,130,246,0.3)] hover:bg-blue-600 hover:scale-[1.02] active:scale-[0.98] transition-all"
+            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-500 text-white font-bold text-sm hover:bg-blue-600 transition-all"
           >
             <span className="material-symbols-outlined text-lg">download</span>
             <span className="hidden sm:inline">Download PDF</span>
           </button>
           <div
-            className="ml-2 w-9 h-9 rounded-full bg-gradient-to-br from-purple-500 to-indigo-600 ring-2 ring-[#0F172A] cursor-pointer flex items-center justify-center text-white font-bold text-sm"
+            className="ml-2 w-9 h-9 rounded-full bg-slate-700 cursor-pointer flex items-center justify-center text-white font-bold text-sm"
             title={user?.email}
             onClick={handleLogout}
           >
@@ -346,7 +409,7 @@ ${editorData.skills?.technical?.length > 0 || editorData.skills?.tools?.length >
                   Professional Summary
                 </h3>
                 <textarea
-                  className="w-full bg-transparent text-slate-300 text-sm leading-relaxed resize-none focus:outline-none min-h-[80px]"
+                  className="w-full bg-transparent text-slate-300 text-sm leading-relaxed resize-none overflow-visible focus:outline-none"
                   spellCheck="false"
                   value={editorData.summary}
                   onChange={(e) =>
@@ -386,8 +449,14 @@ ${editorData.skills?.technical?.length > 0 || editorData.skills?.tools?.length >
                           value={exp.position}
                           onChange={(e) => {
                             const newExp = [...editorData.experience];
-                            newExp[index] = {...newExp[index], position: e.target.value};
-                            setEditorData({...editorData, experience: newExp});
+                            newExp[index] = {
+                              ...newExp[index],
+                              position: e.target.value,
+                            };
+                            setEditorData({
+                              ...editorData,
+                              experience: newExp,
+                            });
                           }}
                         />
                         <input
@@ -396,8 +465,14 @@ ${editorData.skills?.technical?.length > 0 || editorData.skills?.tools?.length >
                           value={exp.company}
                           onChange={(e) => {
                             const newExp = [...editorData.experience];
-                            newExp[index] = {...newExp[index], company: e.target.value};
-                            setEditorData({...editorData, experience: newExp});
+                            newExp[index] = {
+                              ...newExp[index],
+                              company: e.target.value,
+                            };
+                            setEditorData({
+                              ...editorData,
+                              experience: newExp,
+                            });
                           }}
                         />
                       </div>
@@ -408,10 +483,17 @@ ${editorData.skills?.technical?.length > 0 || editorData.skills?.tools?.length >
                           placeholder="Start - End"
                           value={`${exp.startDate} - ${exp.endDate}`}
                           onChange={(e) => {
-                            const dates = e.target.value.split(' - ');
+                            const dates = e.target.value.split(" - ");
                             const newExp = [...editorData.experience];
-                            newExp[index] = {...newExp[index], startDate: dates[0] || '', endDate: dates[1] || ''};
-                            setEditorData({...editorData, experience: newExp});
+                            newExp[index] = {
+                              ...newExp[index],
+                              startDate: dates[0] || "",
+                              endDate: dates[1] || "",
+                            };
+                            setEditorData({
+                              ...editorData,
+                              experience: newExp,
+                            });
                           }}
                         />
                         <input
@@ -420,21 +502,30 @@ ${editorData.skills?.technical?.length > 0 || editorData.skills?.tools?.length >
                           value={exp.location}
                           onChange={(e) => {
                             const newExp = [...editorData.experience];
-                            newExp[index] = {...newExp[index], location: e.target.value};
-                            setEditorData({...editorData, experience: newExp});
+                            newExp[index] = {
+                              ...newExp[index],
+                              location: e.target.value,
+                            };
+                            setEditorData({
+                              ...editorData,
+                              experience: newExp,
+                            });
                           }}
                         />
                       </div>
                     </div>
                     <div className="mt-3 relative pl-4 border-l-2 border-white/5">
                       <textarea
-                        className="w-full bg-transparent text-slate-300 text-sm leading-relaxed resize-none focus:outline-none focus:ring-2 focus:ring-blue-500/50 rounded px-2 py-1 min-h-[100px]"
+                        className="w-full bg-transparent text-slate-300 text-sm leading-relaxed resize-none overflow-visible focus:outline-none focus:ring-2 focus:ring-blue-500/50 rounded px-2 py-1"
                         spellCheck="false"
                         value={exp.description}
                         onChange={(e) => {
                           const newExp = [...editorData.experience];
-                          newExp[index] = {...newExp[index], description: e.target.value};
-                          setEditorData({...editorData, experience: newExp});
+                          newExp[index] = {
+                            ...newExp[index],
+                            description: e.target.value,
+                          };
+                          setEditorData({ ...editorData, experience: newExp });
                         }}
                       />
                     </div>
@@ -468,8 +559,11 @@ ${editorData.skills?.technical?.length > 0 || editorData.skills?.tools?.length >
                           value={edu.degree}
                           onChange={(e) => {
                             const newEdu = [...editorData.education];
-                            newEdu[index] = {...newEdu[index], degree: e.target.value};
-                            setEditorData({...editorData, education: newEdu});
+                            newEdu[index] = {
+                              ...newEdu[index],
+                              degree: e.target.value,
+                            };
+                            setEditorData({ ...editorData, education: newEdu });
                           }}
                         />
                         <input
@@ -478,8 +572,11 @@ ${editorData.skills?.technical?.length > 0 || editorData.skills?.tools?.length >
                           value={edu.institution}
                           onChange={(e) => {
                             const newEdu = [...editorData.education];
-                            newEdu[index] = {...newEdu[index], institution: e.target.value};
-                            setEditorData({...editorData, education: newEdu});
+                            newEdu[index] = {
+                              ...newEdu[index],
+                              institution: e.target.value,
+                            };
+                            setEditorData({ ...editorData, education: newEdu });
                           }}
                         />
                       </div>
@@ -490,8 +587,11 @@ ${editorData.skills?.technical?.length > 0 || editorData.skills?.tools?.length >
                           value={edu.year}
                           onChange={(e) => {
                             const newEdu = [...editorData.education];
-                            newEdu[index] = {...newEdu[index], year: e.target.value};
-                            setEditorData({...editorData, education: newEdu});
+                            newEdu[index] = {
+                              ...newEdu[index],
+                              year: e.target.value,
+                            };
+                            setEditorData({ ...editorData, education: newEdu });
                           }}
                         />
                       </div>
@@ -501,60 +601,96 @@ ${editorData.skills?.technical?.length > 0 || editorData.skills?.tools?.length >
               </div>
 
               {/* Skills */}
-              {editorData.skills && (editorData.skills.technical?.length > 0 || editorData.skills.tools?.length > 0 || editorData.skills.soft?.length > 0) && (
-                <div className="space-y-4">
-                  <h3 className="text-slate-400 text-xs font-bold uppercase tracking-wider">
-                    Skills
-                  </h3>
-                  <div className="rounded-xl border border-white/5 bg-[#1E293B]/40 p-5 space-y-3">
-                    {editorData.skills.technical?.length > 0 && (
-                      <div>
-                        <div className="text-xs text-slate-500 mb-1">Technical Skills</div>
-                        <input
-                          className="w-full bg-transparent text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50 rounded px-2 py-1"
-                          type="text"
-                          value={editorData.skills.technical.join(", ")}
-                          onChange={(e) => {
-                            const newSkills = {...editorData.skills, technical: e.target.value.split(",").map(s => s.trim()).filter(Boolean)};
-                            setEditorData({...editorData, skills: newSkills});
-                          }}
-                          placeholder="e.g., JavaScript, Python, React"
-                        />
-                      </div>
-                    )}
-                    {editorData.skills.tools?.length > 0 && (
-                      <div>
-                        <div className="text-xs text-slate-500 mb-1">Tools & Technologies</div>
-                        <input
-                          className="w-full bg-transparent text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50 rounded px-2 py-1"
-                          type="text"
-                          value={editorData.skills.tools.join(", ")}
-                          onChange={(e) => {
-                            const newSkills = {...editorData.skills, tools: e.target.value.split(",").map(s => s.trim()).filter(Boolean)};
-                            setEditorData({...editorData, skills: newSkills});
-                          }}
-                          placeholder="e.g., Git, Docker, AWS"
-                        />
-                      </div>
-                    )}
-                    {editorData.skills.soft?.length > 0 && (
-                      <div>
-                        <div className="text-xs text-slate-500 mb-1">Soft Skills</div>
-                        <input
-                          className="w-full bg-transparent text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50 rounded px-2 py-1"
-                          type="text"
-                          value={editorData.skills.soft.join(", ")}
-                          onChange={(e) => {
-                            const newSkills = {...editorData.skills, soft: e.target.value.split(",").map(s => s.trim()).filter(Boolean)};
-                            setEditorData({...editorData, skills: newSkills});
-                          }}
-                          placeholder="e.g., Leadership, Communication"
-                        />
-                      </div>
-                    )}
+              {editorData.skills &&
+                (editorData.skills.technical?.length > 0 ||
+                  editorData.skills.tools?.length > 0 ||
+                  editorData.skills.soft?.length > 0) && (
+                  <div className="space-y-4">
+                    <h3 className="text-slate-400 text-xs font-bold uppercase tracking-wider">
+                      Skills
+                    </h3>
+                    <div className="rounded-xl border border-white/5 bg-[#1E293B]/40 p-5 space-y-3">
+                      {editorData.skills.technical?.length > 0 && (
+                        <div>
+                          <div className="text-xs text-slate-500 mb-1">
+                            Technical Skills
+                          </div>
+                          <input
+                            className="w-full bg-transparent text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50 rounded px-2 py-1"
+                            type="text"
+                            value={editorData.skills.technical.join(", ")}
+                            onChange={(e) => {
+                              const newSkills = {
+                                ...editorData.skills,
+                                technical: e.target.value
+                                  .split(",")
+                                  .map((s) => s.trim())
+                                  .filter(Boolean),
+                              };
+                              setEditorData({
+                                ...editorData,
+                                skills: newSkills,
+                              });
+                            }}
+                            placeholder="e.g., JavaScript, Python, React"
+                          />
+                        </div>
+                      )}
+                      {editorData.skills.tools?.length > 0 && (
+                        <div>
+                          <div className="text-xs text-slate-500 mb-1">
+                            Tools & Technologies
+                          </div>
+                          <input
+                            className="w-full bg-transparent text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50 rounded px-2 py-1"
+                            type="text"
+                            value={editorData.skills.tools.join(", ")}
+                            onChange={(e) => {
+                              const newSkills = {
+                                ...editorData.skills,
+                                tools: e.target.value
+                                  .split(",")
+                                  .map((s) => s.trim())
+                                  .filter(Boolean),
+                              };
+                              setEditorData({
+                                ...editorData,
+                                skills: newSkills,
+                              });
+                            }}
+                            placeholder="e.g., Git, Docker, AWS"
+                          />
+                        </div>
+                      )}
+                      {editorData.skills.soft?.length > 0 && (
+                        <div>
+                          <div className="text-xs text-slate-500 mb-1">
+                            Soft Skills
+                          </div>
+                          <input
+                            className="w-full bg-transparent text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50 rounded px-2 py-1"
+                            type="text"
+                            value={editorData.skills.soft.join(", ")}
+                            onChange={(e) => {
+                              const newSkills = {
+                                ...editorData.skills,
+                                soft: e.target.value
+                                  .split(",")
+                                  .map((s) => s.trim())
+                                  .filter(Boolean),
+                              };
+                              setEditorData({
+                                ...editorData,
+                                skills: newSkills,
+                              });
+                            }}
+                            placeholder="e.g., Leadership, Communication"
+                          />
+                        </div>
+                      )}
+                    </div>
                   </div>
-                </div>
-              )}
+                )}
 
               {/* Projects */}
               {editorData.projects?.length > 0 && (
@@ -573,18 +709,41 @@ ${editorData.skills?.technical?.length > 0 || editorData.skills?.tools?.length >
                         value={project.title}
                         onChange={(e) => {
                           const newProjects = [...editorData.projects];
-                          newProjects[idx] = {...newProjects[idx], title: e.target.value};
-                          setEditorData({...editorData, projects: newProjects});
+                          newProjects[idx] = {
+                            ...newProjects[idx],
+                            title: e.target.value,
+                          };
+                          setEditorData({
+                            ...editorData,
+                            projects: newProjects,
+                          });
                         }}
                         placeholder="Project Title"
                       />
                       <textarea
-                        className="text-slate-300 text-sm bg-transparent focus:outline-none focus:ring-2 focus:ring-blue-500/50 rounded px-2 py-1 w-full mb-2 resize-none min-h-[60px]"
+                        className="text-slate-300 text-sm bg-transparent focus:outline-none focus:ring-2 focus:ring-blue-500/50 rounded px-2 py-1 w-full mb-2 resize-none overflow-visible"
                         value={project.description}
+                        style={{ overflow: "hidden" }}
+                        ref={(el) => {
+                          if (el) {
+                            el.style.height = "auto";
+                            el.style.height = el.scrollHeight + "px";
+                          }
+                        }}
+                        onInput={(e) => {
+                          e.target.style.height = "auto";
+                          e.target.style.height = e.target.scrollHeight + "px";
+                        }}
                         onChange={(e) => {
                           const newProjects = [...editorData.projects];
-                          newProjects[idx] = {...newProjects[idx], description: e.target.value};
-                          setEditorData({...editorData, projects: newProjects});
+                          newProjects[idx] = {
+                            ...newProjects[idx],
+                            description: e.target.value,
+                          };
+                          setEditorData({
+                            ...editorData,
+                            projects: newProjects,
+                          });
                         }}
                         placeholder="Project Description"
                       />
@@ -595,8 +754,17 @@ ${editorData.skills?.technical?.length > 0 || editorData.skills?.tools?.length >
                           value={project.technologies.join(", ")}
                           onChange={(e) => {
                             const newProjects = [...editorData.projects];
-                            newProjects[idx] = {...newProjects[idx], technologies: e.target.value.split(",").map(s => s.trim()).filter(Boolean)};
-                            setEditorData({...editorData, projects: newProjects});
+                            newProjects[idx] = {
+                              ...newProjects[idx],
+                              technologies: e.target.value
+                                .split(",")
+                                .map((s) => s.trim())
+                                .filter(Boolean),
+                            };
+                            setEditorData({
+                              ...editorData,
+                              projects: newProjects,
+                            });
                           }}
                           placeholder="Technologies (comma-separated)"
                         />
@@ -624,8 +792,14 @@ ${editorData.skills?.technical?.length > 0 || editorData.skills?.tools?.length >
                           value={cert.title}
                           onChange={(e) => {
                             const newCerts = [...editorData.certifications];
-                            newCerts[idx] = {...newCerts[idx], title: e.target.value};
-                            setEditorData({...editorData, certifications: newCerts});
+                            newCerts[idx] = {
+                              ...newCerts[idx],
+                              title: e.target.value,
+                            };
+                            setEditorData({
+                              ...editorData,
+                              certifications: newCerts,
+                            });
                           }}
                           placeholder="Certification Title"
                         />
@@ -635,8 +809,14 @@ ${editorData.skills?.technical?.length > 0 || editorData.skills?.tools?.length >
                           value={cert.date}
                           onChange={(e) => {
                             const newCerts = [...editorData.certifications];
-                            newCerts[idx] = {...newCerts[idx], date: e.target.value};
-                            setEditorData({...editorData, certifications: newCerts});
+                            newCerts[idx] = {
+                              ...newCerts[idx],
+                              date: e.target.value,
+                            };
+                            setEditorData({
+                              ...editorData,
+                              certifications: newCerts,
+                            });
                           }}
                           placeholder="Date"
                         />
@@ -647,8 +827,14 @@ ${editorData.skills?.technical?.length > 0 || editorData.skills?.tools?.length >
                         value={cert.issuer}
                         onChange={(e) => {
                           const newCerts = [...editorData.certifications];
-                          newCerts[idx] = {...newCerts[idx], issuer: e.target.value};
-                          setEditorData({...editorData, certifications: newCerts});
+                          newCerts[idx] = {
+                            ...newCerts[idx],
+                            issuer: e.target.value,
+                          };
+                          setEditorData({
+                            ...editorData,
+                            certifications: newCerts,
+                          });
                         }}
                         placeholder="Issuing Organization"
                       />
@@ -738,7 +924,7 @@ ${editorData.skills?.technical?.length > 0 || editorData.skills?.tools?.length >
               </button>
             </div>
           </div>
-          <div className="flex-1 overflow-y-auto custom-scrollbar bg-[radial-gradient(#334155_1px,transparent_1px)] [background-size:20px_20px] p-8 flex justify-center items-start">
+          <div className="flex-1 overflow-y-auto custom-scrollbar bg-white p-8 flex justify-center items-start">
             <div
               className="pdf-page w-[595px] min-h-[842px] p-[40px] text-[11px] leading-[1.4] relative origin-top transform transition-transform duration-200"
               style={{ transform: `scale(${zoom / 100})` }}
@@ -868,8 +1054,12 @@ ${editorData.skills?.technical?.length > 0 || editorData.skills?.tools?.length >
                   {editorData.certifications.map((cert, idx) => (
                     <div key={idx} className="mb-2">
                       <div className="flex justify-between">
-                        <span className="font-bold text-gray-800">{cert.title}</span>
-                        <span className="text-gray-600 text-[10px]">{cert.date}</span>
+                        <span className="font-bold text-gray-800">
+                          {cert.title}
+                        </span>
+                        <span className="text-gray-600 text-[10px]">
+                          {cert.date}
+                        </span>
                       </div>
                       <div className="text-gray-700 text-[10.5px]">
                         {cert.issuer}

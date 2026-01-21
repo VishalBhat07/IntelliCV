@@ -20,6 +20,18 @@ const GeneratedResume = sequelize.define(
       allowNull: true,
     },
 
+    // Resume title for display (e.g., "Senior Product Designer")
+    title: {
+      type: DataTypes.STRING,
+      allowNull: true,
+    },
+
+    // Target company/position (e.g., "Google")
+    target: {
+      type: DataTypes.STRING,
+      allowNull: true,
+    },
+
     // Structured resume sections stored as JSON
     personal_info: {
       type: DataTypes.JSON,
@@ -62,6 +74,12 @@ const GeneratedResume = sequelize.define(
       // [{ title, issuer, date }]
     },
 
+    // HTML content of the generated resume
+    generated_text: {
+      type: DataTypes.TEXT,
+      allowNull: true,
+    },
+
     match_score: {
       type: DataTypes.FLOAT,
     },
@@ -74,7 +92,7 @@ const GeneratedResume = sequelize.define(
   {
     timestamps: false,
     tableName: "Generated_Resume",
-  }
+  },
 );
 
 module.exports = GeneratedResume;

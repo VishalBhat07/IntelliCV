@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { useNavigate, Link, useParams } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import EducationStep from "./resume-studio/EducationStep";
 import DocumentsStep from "./resume-studio/DocumentsStep";
@@ -7,19 +7,51 @@ import JobDescriptionStep from "./resume-studio/JobDescriptionStep";
 import GenerateStep from "./resume-studio/GenerateStep";
 import ResumeEditor from "./resume-studio/ResumeEditor";
 import CurtainTransition from "../components/CurtainTransition";
+import { resumeAPI } from "../services/api";
+import toast from "react-hot-toast";
 
 const ResumeStudio = () => {
   const navigate = useNavigate();
+  const { resumeId } = useParams();
   const { user, logout } = useAuth();
   const [currentStep, setCurrentStep] = useState(1);
   const [showEditor, setShowEditor] = useState(false);
   const [showCurtain, setShowCurtain] = useState(false);
+  const [loadingExisting, setLoadingExisting] = useState(false);
   const [resumeData, setResumeData] = useState({
     education: [],
     documents: [],
     jobDescription: { text: "", file: null },
   });
   const [generatedResume, setGeneratedResume] = useState(null);
+  const [existingResumeId, setExistingResumeId] = useState(null);
+
+  // Load existing resume if resumeId is provided
+  useEffect(() => {
+    if (resumeId) {
+      loadExistingResume(resumeId);
+    }
+  }, [resumeId]);
+
+  const loadExistingResume = async (id) => {
+    try {
+      setLoadingExisting(true);
+      const data = await resumeAPI.getById(id);
+      if (data.resume) {
+        console.log("📥 Loaded existing resume:", data.resume);
+        setGeneratedResume(data.resume);
+        setExistingResumeId(data.resume.resume_id);
+        // Skip the wizard and go directly to editor
+        setShowEditor(true);
+      }
+    } catch (error) {
+      console.error("Failed to load resume:", error);
+      toast.error("Failed to load resume");
+      navigate("/dashboard");
+    } finally {
+      setLoadingExisting(false);
+    }
+  };
 
   const handleLogout = () => {
     logout();
@@ -101,7 +133,10 @@ const ResumeStudio = () => {
 
   const handleGenerationComplete = (generatedResumeData) => {
     // Store the generated resume data
-    console.log("📥 ResumeStudio received generated resume:", generatedResumeData);
+    console.log(
+      "📥 ResumeStudio received generated resume:",
+      generatedResumeData,
+    );
     setGeneratedResume(generatedResumeData);
     // Show curtain animation
     setShowCurtain(true);
@@ -119,12 +154,29 @@ const ResumeStudio = () => {
   if (showEditor) {
     return (
       <>
-        <ResumeEditor resumeData={generatedResume} />
+        <ResumeEditor
+          resumeData={generatedResume}
+          resumeId={existingResumeId}
+        />
         <CurtainTransition
           isOpen={!showCurtain}
           onComplete={handleCurtainComplete}
         />
       </>
+    );
+  }
+
+  // Show loading state when loading existing resume
+  if (loadingExisting) {
+    return (
+      <div className="flex items-center justify-center h-screen bg-[#0F172A]">
+        <div className="flex flex-col items-center gap-4">
+          <span className="material-symbols-outlined animate-spin text-4xl text-blue-500">
+            progress_activity
+          </span>
+          <p className="text-white">Loading resume...</p>
+        </div>
+      </div>
     );
   }
 
@@ -152,8 +204,8 @@ const ResumeStudio = () => {
                     currentStep === step.number
                       ? "bg-blue-500 text-white font-bold shadow-lg shadow-blue-500/25"
                       : currentStep > step.number
-                      ? "text-emerald-400"
-                      : "text-slate-400 opacity-60"
+                        ? "text-emerald-400"
+                        : "text-slate-400 opacity-60"
                   }`}
                 >
                   <span
@@ -161,8 +213,8 @@ const ResumeStudio = () => {
                       currentStep > step.number
                         ? "bg-emerald-500/20 text-emerald-500 ring-1 ring-emerald-500/30"
                         : currentStep === step.number
-                        ? "bg-white text-blue-500 font-bold"
-                        : "bg-white/10 text-white"
+                          ? "bg-white text-blue-500 font-bold"
+                          : "bg-white/10 text-white"
                     }`}
                   >
                     {currentStep > step.number ? (

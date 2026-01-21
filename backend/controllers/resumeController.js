@@ -40,8 +40,8 @@ async function throttleRequest() {
     const waitTime = MIN_REQUEST_INTERVAL - timeSinceLastRequest;
     console.log(
       `⏱️  Throttling: Waiting ${(waitTime / 1000).toFixed(
-        1
-      )}s before next request...`
+        1,
+      )}s before next request...`,
     );
     await new Promise((resolve) => setTimeout(resolve, waitTime));
   }
@@ -56,7 +56,7 @@ function parseRetryDelay(error) {
     if (error.errorDetails) {
       const retryInfo = error.errorDetails.find(
         (detail) =>
-          detail["@type"] === "type.googleapis.com/google.rpc.RetryInfo"
+          detail["@type"] === "type.googleapis.com/google.rpc.RetryInfo",
       );
 
       if (retryInfo && retryInfo.retryDelay) {
@@ -101,8 +101,8 @@ async function retryWithBackoff(fn, maxRetries = 5, initialDelay = 5000) {
 
         console.log(
           `🔄 Rate limit hit. Retrying in ${(delay / 1000).toFixed(
-            1
-          )}s... (Attempt ${i + 1}/${maxRetries})`
+            1,
+          )}s... (Attempt ${i + 1}/${maxRetries})`,
         );
         await new Promise((resolve) => setTimeout(resolve, delay));
       } else {
@@ -308,7 +308,7 @@ exports.generateResume = async (req, res) => {
   // Check if resume is already being generated for this user
   if (isProcessing(user_id)) {
     console.log(
-      `⚠️  Resume generation for user ${user_id} already in progress. Ignoring duplicate request.`
+      `⚠️  Resume generation for user ${user_id} already in progress. Ignoring duplicate request.`,
     );
     return res.status(409).json({
       msg: "Resume is already being generated for this user",
@@ -369,7 +369,7 @@ exports.generateResume = async (req, res) => {
     // Release processing lock on error
     releaseProcessingLock(user_id);
     console.log(
-      `🔓 Resume generation lock released for user ${user_id} (error occurred)`
+      `🔓 Resume generation lock released for user ${user_id} (error occurred)`,
     );
 
     console.error("Error generating resume:", error);
@@ -396,6 +396,15 @@ exports.getResumes = async (req, res) => {
       resumes: resumes.map((resume) => ({
         resume_id: resume.resume_id,
         job_id: resume.job_id,
+        title: resume.title || "Untitled Resume",
+        target: resume.target || "General",
+        personal_info: resume.personal_info,
+        summary: resume.summary,
+        experience: resume.experience,
+        education: resume.education,
+        skills: resume.skills,
+        projects: resume.projects,
+        certifications: resume.certifications,
         htmlContent: resume.generated_text,
         match_score: resume.match_score,
         timestamp: resume.timestamp,
@@ -428,12 +437,174 @@ exports.getLatestResume = async (req, res) => {
     res.json({
       resume_id: resume.resume_id,
       job_id: resume.job_id,
+      title: resume.title,
+      target: resume.target,
+      personal_info: resume.personal_info,
+      summary: resume.summary,
+      experience: resume.experience,
+      education: resume.education,
+      skills: resume.skills,
+      projects: resume.projects,
+      certifications: resume.certifications,
       htmlContent: resume.generated_text,
       match_score: resume.match_score,
       timestamp: resume.timestamp,
     });
   } catch (error) {
     console.error("Error fetching latest resume:", error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// GET /api/resume/single/:resume_id - Get a specific resume by ID
+exports.getResumeById = async (req, res) => {
+  try {
+    const { resume_id } = req.params;
+
+    if (!resume_id) {
+      return res.status(400).json({ msg: "resume_id is required" });
+    }
+
+    const resume = await GeneratedResume.findByPk(resume_id);
+
+    if (!resume) {
+      return res.status(404).json({ msg: "Resume not found" });
+    }
+
+    res.json({
+      resume: {
+        resume_id: resume.resume_id,
+        user_id: resume.user_id,
+        job_id: resume.job_id,
+        title: resume.title,
+        target: resume.target,
+        personal_info: resume.personal_info,
+        summary: resume.summary,
+        experience: resume.experience,
+        education: resume.education,
+        skills: resume.skills,
+        projects: resume.projects,
+        certifications: resume.certifications,
+        htmlContent: resume.generated_text,
+        match_score: resume.match_score,
+        timestamp: resume.timestamp,
+      },
+    });
+  } catch (error) {
+    console.error("Error fetching resume:", error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// POST /api/resume/save - Save or update a resume
+exports.saveResume = async (req, res) => {
+  try {
+    const {
+      resume_id,
+      user_id,
+      title,
+      target,
+      personal_info,
+      summary,
+      experience,
+      education,
+      skills,
+      projects,
+      certifications,
+      htmlContent,
+      match_score,
+    } = req.body;
+
+    if (!user_id) {
+      return res.status(400).json({ msg: "user_id is required" });
+    }
+
+    let resume;
+
+    if (resume_id) {
+      // Update existing resume
+      resume = await GeneratedResume.findByPk(resume_id);
+      if (!resume) {
+        return res.status(404).json({ msg: "Resume not found" });
+      }
+
+      // Update fields
+      resume.title = title || resume.title;
+      resume.target = target || resume.target;
+      resume.personal_info = personal_info || resume.personal_info;
+      resume.summary = summary || resume.summary;
+      resume.experience = experience || resume.experience;
+      resume.education = education || resume.education;
+      resume.skills = skills || resume.skills;
+      resume.projects = projects || resume.projects;
+      resume.certifications = certifications || resume.certifications;
+      resume.generated_text = htmlContent || resume.generated_text;
+      resume.match_score =
+        match_score !== undefined ? match_score : resume.match_score;
+      resume.timestamp = new Date();
+
+      await resume.save();
+    } else {
+      // Create new resume
+      resume = await GeneratedResume.create({
+        user_id,
+        title: title || "Untitled Resume",
+        target: target || "General",
+        personal_info,
+        summary,
+        experience,
+        education,
+        skills,
+        projects,
+        certifications,
+        generated_text: htmlContent,
+        match_score: match_score || 0,
+      });
+    }
+
+    res.json({
+      msg: resume_id
+        ? "Resume updated successfully"
+        : "Resume saved successfully",
+      resume: {
+        resume_id: resume.resume_id,
+        user_id: resume.user_id,
+        title: resume.title,
+        target: resume.target,
+        personal_info: resume.personal_info,
+        summary: resume.summary,
+        experience: resume.experience,
+        education: resume.education,
+        skills: resume.skills,
+        projects: resume.projects,
+        certifications: resume.certifications,
+        htmlContent: resume.generated_text,
+        match_score: resume.match_score,
+        timestamp: resume.timestamp,
+      },
+    });
+  } catch (error) {
+    console.error("Error saving resume:", error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// Delete a resume by ID
+exports.deleteResume = async (req, res) => {
+  try {
+    const { resume_id } = req.params;
+
+    const resume = await GeneratedResume.findByPk(resume_id);
+
+    if (!resume) {
+      return res.status(404).json({ error: "Resume not found" });
+    }
+
+    await resume.destroy();
+
+    res.json({ msg: "Resume deleted successfully", resume_id });
+  } catch (error) {
+    console.error("Error deleting resume:", error);
     res.status(500).json({ error: error.message });
   }
 };

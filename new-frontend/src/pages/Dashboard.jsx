@@ -1,11 +1,65 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "../context/AuthContext";
 import { useNavigate } from "react-router-dom";
+import { resumeAPI, authAPI } from "../services/api";
+import toast from "react-hot-toast";
 
 const Dashboard = () => {
-  const { user, logout } = useAuth();
+  const { user, logout, updateUser } = useAuth();
   const navigate = useNavigate();
   const [showMobileMenu, setShowMobileMenu] = useState(false);
+  const [resumes, setResumes] = useState([]);
+  const [loadingResumes, setLoadingResumes] = useState(true);
+  const [showEditProfile, setShowEditProfile] = useState(false);
+  const [profileForm, setProfileForm] = useState({
+    first_name: "",
+    middle_name: "",
+    last_name: "",
+    contact: [],
+    profile_summary: "",
+    profile_picture: "",
+    location: "",
+    portfolio: "",
+    title: "",
+  });
+  const [savingProfile, setSavingProfile] = useState(false);
+
+  // Fetch user's resumes on mount
+  useEffect(() => {
+    if (user?.user_id) {
+      fetchResumes();
+    }
+  }, [user?.user_id]);
+
+  // Initialize profile form when modal opens
+  useEffect(() => {
+    if (showEditProfile && user) {
+      setProfileForm({
+        first_name: user.first_name || "",
+        middle_name: user.middle_name || "",
+        last_name: user.last_name || "",
+        contact: user.contact || [],
+        profile_summary: user.profile_summary || "",
+        profile_picture: user.profile_picture || "",
+        location: user.location || "",
+        portfolio: user.portfolio || "",
+        title: user.title || "",
+      });
+    }
+  }, [showEditProfile, user]);
+
+  const fetchResumes = async () => {
+    try {
+      setLoadingResumes(true);
+      const data = await resumeAPI.getAll(user.user_id);
+      setResumes(data.resumes || []);
+    } catch (error) {
+      console.error("Failed to fetch resumes:", error);
+      toast.error("Failed to load resumes");
+    } finally {
+      setLoadingResumes(false);
+    }
+  };
 
   const handleLogout = () => {
     logout();
@@ -16,41 +70,147 @@ const Dashboard = () => {
     navigate("/resume-studio");
   };
 
-  // Sample resume data - this will be replaced with actual data from backend
-  const resumes = [
-    {
-      id: 1,
-      title: "Senior Product Designer",
-      target: "Google",
-      editedTime: "2h ago",
-      atsScore: 92,
-      image:
-        "https://lh3.googleusercontent.com/aida-public/AB6AXuC8FeiUUCm1HXo2pMZSzWSlZE0rVPFuoUC5pHYI41RoLEgCx3pzvhlrPoeFEv1nMYEGEk0PLg8K5mFpndUQBwgvSVgfNT8NeZOiakTaAoqeaW8vXMy-9av8B2SKFo1tE3MZwiRatSu6rn2enqnGyim21sSD9-e6IKwhlt0HatcL9LNngxfjHgptjT2wdEe8WAJX8UOQ12tx4uUD7_4uW_p8_O_BXv5hTXFAJs-7COT3y5WdurKQbyoer7YGrOfios3Wh6Cw6XM25g",
-    },
-    {
-      id: 2,
-      title: "UX Lead - Fintech",
-      target: "Stripe",
-      editedTime: "yesterday",
-      atsScore: 78,
-      image:
-        "https://lh3.googleusercontent.com/aida-public/AB6AXuChLYAlMTra8mBW19WvqMJvt7o5S-mpnJn9vaoJphWi7CF1oArWeNj5WE6KkNxPu1m__RHhgGXOgP3yKNnASaksBT0AgvOkUMKGBd9gzxNjTSnXKdPc864T8mBmZPyGbX9qfGwB71ACJVqG9aRuIusbybB589-vGHbcqsjnrCZs_bkS7TnN-8Ek091JE2cJkui457gk3658qUfuRZih900z-EF5wACNJ6_g99iuMCS4lB_WKfWnNxX5i5TpmMw9BIADrNUJa7obnQ",
-    },
-    {
-      id: 3,
-      title: "General Resume 2024",
-      target: "General",
-      editedTime: "5 days ago",
-      atsScore: 85,
-      image:
-        "https://lh3.googleusercontent.com/aida-public/AB6AXuBvkoH5jZgWKlUr-CHzp1_X8yeyQBU8n2UhS3Kd3EV2B1pHoKVpRQqw6ci-efAWG-KYcR1OB8PW5e_5TnyD34C15pphcujWnPYZgBk9oRPap_dSfq_SCM4ofFlVWMVIKcQb5j_cm9G-nFkuAcKP-oMUFUJK3fJ6H6Fiwq8Y4W2fJbfldDocY-5WQMObcJWpAMeJLuil9mNuB-6JhYd0JkUgMp8mtjmdyaUDPGHXza-XAnGWUwzks6rud5jx0tfNezmQ4OKerHVYgw",
-    },
-  ];
+  const handleEditResume = (resumeId) => {
+    navigate(`/resume-studio/${resumeId}`);
+  };
+
+  const handleDownloadResume = async (resume) => {
+    try {
+      toast.loading("Generating PDF...", { id: "pdf-download" });
+
+      // Generate HTML from resume data
+      const htmlContent = `<!DOCTYPE html>
+<html><head><meta charset="UTF-8"><style>
+body{font-family:Arial,sans-serif;line-height:1.6;color:#333;max-width:800px;margin:0 auto;padding:20px}
+h1{color:#2563eb;margin-bottom:5px;font-size:28px}
+h2{color:#1e40af;border-bottom:2px solid #2563eb;padding-bottom:5px;margin-top:20px;font-size:18px}
+.contact{color:#666;margin-bottom:20px;font-size:14px}
+.item{margin-bottom:15px}
+.item-header{font-weight:bold;color:#1e40af;font-size:16px}
+.item-subheader{color:#666;font-size:14px;margin-top:2px}
+</style></head><body>
+<h1>${resume.personal_info?.name || resume.title || "Resume"}</h1>
+<div class="contact">
+${resume.personal_info?.title ? `<div><strong>${resume.personal_info.title}</strong></div>` : ""}
+${resume.personal_info?.email ? `<div>Email: ${resume.personal_info.email}</div>` : ""}
+${resume.personal_info?.phone ? `<div>Phone: ${resume.personal_info.phone}</div>` : ""}
+</div>
+${resume.summary ? `<h2>Summary</h2><p>${resume.summary}</p>` : ""}
+${resume.experience?.length > 0 ? `<h2>Experience</h2>${resume.experience.map((e) => `<div class="item"><div class="item-header">${e.position} at ${e.company}</div><div class="item-subheader">${e.startDate} - ${e.endDate}</div><div>${e.description}</div></div>`).join("")}` : ""}
+${resume.education?.length > 0 ? `<h2>Education</h2>${resume.education.map((e) => `<div class="item"><div class="item-header">${e.degree}</div><div class="item-subheader">${e.institution} | ${e.year}</div></div>`).join("")}` : ""}
+${resume.skills?.technical?.length > 0 || resume.skills?.tools?.length > 0 ? `<h2>Skills</h2>${resume.skills.technical?.length > 0 ? `<div><strong>Technical:</strong> ${resume.skills.technical.join(", ")}</div>` : ""}${resume.skills.tools?.length > 0 ? `<div><strong>Tools:</strong> ${resume.skills.tools.join(", ")}</div>` : ""}` : ""}
+${resume.projects?.length > 0 ? `<h2>Projects</h2>${resume.projects.map((p) => `<div class="item"><div class="item-header">${p.title || p.name}</div><div>${p.description}</div>${p.technologies?.length > 0 ? `<div class="item-subheader">Tech: ${p.technologies.join(", ")}</div>` : ""}</div>`).join("")}` : ""}
+</body></html>`;
+
+      const blob = await resumeAPI.exportPdf(
+        htmlContent,
+        `${resume.title || "Resume"}.pdf`,
+      );
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${resume.title || "Resume"}_${new Date().toISOString().split("T")[0]}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+      toast.success("PDF downloaded!", { id: "pdf-download" });
+    } catch (err) {
+      console.error("PDF download failed:", err);
+      toast.error("Failed to download PDF", { id: "pdf-download" });
+    }
+  };
+
+  const handleDeleteResume = async (resumeId, resumeTitle) => {
+    if (
+      !window.confirm(
+        `Are you sure you want to delete "${resumeTitle}"? This action cannot be undone.`,
+      )
+    ) {
+      return;
+    }
+
+    try {
+      toast.loading("Deleting resume...", { id: "delete-resume" });
+      await resumeAPI.delete(resumeId);
+      setResumes((prev) => prev.filter((r) => r.resume_id !== resumeId));
+      toast.success("Resume deleted!", { id: "delete-resume" });
+    } catch (error) {
+      console.error("Failed to delete resume:", error);
+      toast.error("Failed to delete resume", { id: "delete-resume" });
+    }
+  };
+
+  const handleImageUpload = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      if (file.size > 5 * 1024 * 1024) {
+        toast.error("Image must be less than 5MB");
+        return;
+      }
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setProfileForm((prev) => ({ ...prev, profile_picture: reader.result }));
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleSaveProfile = async () => {
+    try {
+      setSavingProfile(true);
+      console.log("Saving profile for user:", user.user_id);
+      console.log("Profile data:", profileForm);
+      const response = await authAPI.updateProfile(user.user_id, profileForm);
+      console.log("Profile update response:", response);
+      updateUser(response.user);
+      toast.success("Profile updated successfully!");
+      setShowEditProfile(false);
+    } catch (error) {
+      console.error("Failed to update profile:", error);
+      console.error("Error response:", error.response?.data);
+      toast.error(
+        error.response?.data?.error ||
+          error.response?.data?.msg ||
+          "Failed to update profile",
+      );
+    } finally {
+      setSavingProfile(false);
+    }
+  };
 
   const getAtsScoreColor = (score) => {
     if (score >= 85) return "teal";
     if (score >= 70) return "amber";
     return "red";
+  };
+
+  const formatTimeAgo = (timestamp) => {
+    if (!timestamp) return "Unknown";
+    const date = new Date(timestamp);
+    const now = new Date();
+    const diffInSeconds = Math.floor((now - date) / 1000);
+
+    if (diffInSeconds < 60) return "just now";
+    if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)}m ago`;
+    if (diffInSeconds < 86400)
+      return `${Math.floor(diffInSeconds / 3600)}h ago`;
+    if (diffInSeconds < 604800)
+      return `${Math.floor(diffInSeconds / 86400)} days ago`;
+    return date.toLocaleDateString();
+  };
+
+  // Placeholder cover images for resumes
+  const placeholderImages = [
+    "https://images.unsplash.com/photo-1586281380349-632531db7ed4?w=400&h=300&fit=crop",
+    "https://images.unsplash.com/photo-1517694712202-14dd9538aa97?w=400&h=300&fit=crop",
+    "https://images.unsplash.com/photo-1488590528505-98d2b5aba04b?w=400&h=300&fit=crop",
+    "https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?w=400&h=300&fit=crop",
+    "https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=400&h=300&fit=crop",
+  ];
+
+  const getPlaceholderImage = (index) => {
+    return placeholderImages[index % placeholderImages.length];
   };
 
   return (
@@ -134,11 +294,21 @@ const Dashboard = () => {
                 <div
                   className="w-32 h-32 rounded-full border-4 border-[#1E293B] bg-center bg-cover shadow-2xl relative z-10"
                   style={{
-                    backgroundImage:
-                      "url('https://lh3.googleusercontent.com/aida-public/AB6AXuCdy5XlcaKBVKJJTfgyCbfDDDkJ7B52humo8eyef1agshw3oMbA6Iv6QOwtR7MH0yk0oUD7n-WBlVw2bOesqBGKjTyFtQS4rk5X7kMLI73N-zzBIW8-oKkAYVu6p1Cv6M175zgOQMKXZOpzC2J7kSJvsqjq-ibnAOZu6gWyncPWQO7VoUttK_p_bmDBzsje8vjcpFd2egwR7PYMjGpzFz0xeyK0nlFuZoWh33NKiLdA-xgo93fa9ZGz6bnvMBa8_MvOA5biEvddbg')",
+                    backgroundImage: user?.profile_picture
+                      ? `url('${user.profile_picture}')`
+                      : "url('https://ui-avatars.com/api/?name=" +
+                        encodeURIComponent(
+                          (user?.first_name || "") +
+                            " " +
+                            (user?.last_name || ""),
+                        ) +
+                        "&background=3B82F6&color=fff&size=128')",
                   }}
                 ></div>
-                <button className="absolute bottom-1 right-1 bg-blue-500 text-white p-2 rounded-full hover:bg-blue-600 transition-colors shadow-lg shadow-blue-900/50 flex items-center justify-center z-20 border-2 border-[#1E293B]">
+                <button
+                  onClick={() => setShowEditProfile(true)}
+                  className="absolute bottom-1 right-1 bg-blue-500 text-white p-2 rounded-full hover:bg-blue-600 transition-colors shadow-lg shadow-blue-900/50 flex items-center justify-center z-20 border-2 border-[#1E293B]"
+                >
                   <span className="material-symbols-outlined text-sm">
                     edit
                   </span>
@@ -149,13 +319,13 @@ const Dashboard = () => {
                   {user?.first_name} {user?.last_name}
                 </h2>
                 <p className="text-blue-500 font-medium text-sm">
-                  {user?.profile_summary || "Professional"}
+                  {user?.title || user?.profile_summary || "Professional"}
                 </p>
                 <p className="text-slate-400 text-sm flex items-center justify-center gap-1 mt-1">
                   <span className="material-symbols-outlined text-sm">
                     location_on
                   </span>
-                  San Francisco, CA
+                  {user?.location || "Add location"}
                 </p>
               </div>
               <div className="w-full h-px bg-white/5 my-1"></div>
@@ -186,7 +356,7 @@ const Dashboard = () => {
                       Phone
                     </span>
                     <span className="text-white text-xs">
-                      {user?.contact?.[0] || "+1 (555) 012-3456"}
+                      {user?.contact?.[0] || "Add phone number"}
                     </span>
                   </div>
                 </div>
@@ -201,7 +371,7 @@ const Dashboard = () => {
                       Portfolio
                     </span>
                     <span className="text-white text-xs">
-                      {user?.first_name?.toLowerCase()}.design
+                      {user?.portfolio || "Add portfolio"}
                     </span>
                   </div>
                 </div>
@@ -209,28 +379,15 @@ const Dashboard = () => {
               <div className="w-full h-px bg-white/5 my-1"></div>
               <div className="w-full">
                 <p className="text-slate-400 text-sm leading-relaxed">
-                  Passionate designer with 8+ years of experience in SaaS
-                  products. Expert in UI/UX and design systems.
+                  {user?.profile_summary ||
+                    "Add a professional summary to describe yourself."}
                 </p>
               </div>
-              <button className="w-full mt-2 py-2.5 rounded-lg border border-white/10 text-white text-sm font-semibold hover:bg-white/5 hover:border-blue-500/30 hover:text-blue-500 transition-all">
+              <button
+                onClick={() => setShowEditProfile(true)}
+                className="w-full mt-2 py-2.5 rounded-lg border border-white/10 text-white text-sm font-semibold hover:bg-white/5 hover:border-blue-500/30 hover:text-blue-500 transition-all"
+              >
                 Edit Profile
-              </button>
-            </div>
-
-            {/* Credits Card */}
-            <div className="glass-card rounded-xl p-5 flex justify-between items-center relative overflow-hidden">
-              <div className="absolute -right-4 -bottom-10 w-24 h-24 bg-blue-500/20 rounded-full blur-2xl"></div>
-              <div className="relative z-10">
-                <p className="text-slate-400 text-xs font-bold uppercase tracking-wider mb-1">
-                  Credits Available
-                </p>
-                <p className="text-white text-2xl font-bold font-display">
-                  120
-                </p>
-              </div>
-              <button className="relative z-10 bg-white/5 text-blue-500 border border-white/5 px-4 py-1.5 rounded-lg text-xs font-bold hover:bg-blue-500 hover:text-white transition-all">
-                Top Up
               </button>
             </div>
           </aside>
@@ -290,66 +447,117 @@ const Dashboard = () => {
 
               {/* Resume Cards Grid */}
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-5">
-                {resumes.map((resume) => (
-                  <div
-                    key={resume.id}
-                    className="group relative flex flex-col glass-card !border-white/5 rounded-xl overflow-hidden transition-all duration-300 hover:-translate-y-1 hover:!border-blue-500/40"
-                  >
-                    <div className="relative h-48 w-full bg-slate-800 overflow-hidden">
-                      <div
-                        className="absolute inset-0 bg-center bg-cover opacity-60 mix-blend-overlay group-hover:scale-105 transition-transform duration-700"
-                        style={{
-                          backgroundImage: `url('${resume.image}')`,
-                        }}
-                      ></div>
-                      <div className="absolute inset-0 bg-gradient-to-t from-[#1E293B] to-transparent opacity-90"></div>
-                      <div className="absolute bottom-3 left-4">
-                        <span
-                          className={`px-2 py-1 rounded bg-${getAtsScoreColor(
-                            resume.atsScore
-                          )}-500/10 text-${getAtsScoreColor(
-                            resume.atsScore
-                          )}-400 text-xs font-bold border border-${getAtsScoreColor(
-                            resume.atsScore
-                          )}-500/20 backdrop-blur-sm shadow-sm`}
-                        >
-                          ATS Score: {resume.atsScore}
-                        </span>
+                {loadingResumes ? (
+                  // Loading skeleton
+                  [...Array(3)].map((_, i) => (
+                    <div
+                      key={i}
+                      className="animate-pulse flex flex-col glass-card !border-white/5 rounded-xl overflow-hidden"
+                    >
+                      <div className="h-48 bg-slate-700/50"></div>
+                      <div className="p-5">
+                        <div className="h-4 bg-slate-700/50 rounded w-3/4 mb-3"></div>
+                        <div className="h-3 bg-slate-700/50 rounded w-1/2 mb-5"></div>
+                        <div className="h-8 bg-slate-700/50 rounded"></div>
                       </div>
                     </div>
-                    <div className="p-5 flex flex-col flex-grow bg-[#1E293B]/40">
-                      <div className="flex justify-between items-start mb-1">
-                        <h4 className="text-white font-bold text-base truncate pr-2 group-hover:text-blue-500 transition-colors">
-                          {resume.title}
-                        </h4>
-                        <button className="text-slate-400 hover:text-white transition-colors">
-                          <span className="material-symbols-outlined">
-                            more_vert
-                          </span>
-                        </button>
-                      </div>
-                      <p className="text-slate-400 text-xs mb-5">
-                        Target: {resume.target} • Edited {resume.editedTime}
-                      </p>
-                      <div className="mt-auto flex gap-2">
-                        <button className="flex-1 bg-white/5 hover:bg-blue-500 hover:text-white text-white text-xs font-semibold py-2 rounded-lg transition-colors flex items-center justify-center gap-1.5 border border-white/5 hover:border-blue-500">
-                          <span className="material-symbols-outlined text-sm">
-                            edit
-                          </span>{" "}
-                          Edit
-                        </button>
-                        <button
-                          className="w-8 h-8 flex items-center justify-center rounded-lg border border-white/5 bg-white/5 text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
-                          title="Download PDF"
-                        >
-                          <span className="material-symbols-outlined text-lg">
-                            download
-                          </span>
-                        </button>
-                      </div>
+                  ))
+                ) : resumes.length === 0 ? (
+                  // No resumes message
+                  <div className="col-span-full flex flex-col items-center justify-center py-12 text-center">
+                    <div className="w-20 h-20 rounded-full bg-white/5 flex items-center justify-center mb-4">
+                      <span className="material-symbols-outlined text-4xl text-slate-400">
+                        description
+                      </span>
                     </div>
+                    <h4 className="text-white font-semibold mb-2">
+                      No resumes yet
+                    </h4>
+                    <p className="text-slate-400 text-sm max-w-xs">
+                      Generate your first resume to get started
+                    </p>
                   </div>
-                ))}
+                ) : (
+                  resumes.map((resume, index) => (
+                    <div
+                      key={resume.resume_id}
+                      className="group relative flex flex-col glass-card !border-white/5 rounded-xl overflow-hidden transition-all duration-300 hover:-translate-y-1 hover:!border-blue-500/40"
+                    >
+                      <div className="relative h-48 w-full bg-slate-800 overflow-hidden">
+                        <div
+                          className="absolute inset-0 bg-center bg-cover opacity-60 mix-blend-overlay group-hover:scale-105 transition-transform duration-700"
+                          style={{
+                            backgroundImage: `url('${getPlaceholderImage(index)}')`,
+                          }}
+                        ></div>
+                        <div className="absolute inset-0 bg-gradient-to-t from-[#1E293B] to-transparent opacity-90"></div>
+                        <div className="absolute bottom-3 left-4">
+                          <span
+                            className={`px-2 py-1 rounded bg-${getAtsScoreColor(
+                              resume.match_score || 0,
+                            )}-500/10 text-${getAtsScoreColor(
+                              resume.match_score || 0,
+                            )}-400 text-xs font-bold border border-${getAtsScoreColor(
+                              resume.match_score || 0,
+                            )}-500/20 backdrop-blur-sm shadow-sm`}
+                          >
+                            ATS Score: {Math.round(resume.match_score || 0)}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="p-5 flex flex-col flex-grow bg-[#1E293B]/40">
+                        <div className="flex justify-between items-start mb-1">
+                          <h4 className="text-white font-bold text-base truncate pr-2 group-hover:text-blue-500 transition-colors">
+                            {resume.title || "Untitled Resume"}
+                          </h4>
+                          <button className="text-slate-400 hover:text-white transition-colors">
+                            <span className="material-symbols-outlined">
+                              more_vert
+                            </span>
+                          </button>
+                        </div>
+                        <p className="text-slate-400 text-xs mb-5">
+                          Target: {resume.target || "General"} •{" "}
+                          {formatTimeAgo(resume.timestamp)}
+                        </p>
+                        <div className="mt-auto flex gap-2">
+                          <button
+                            onClick={() => handleEditResume(resume.resume_id)}
+                            className="flex-1 bg-white/5 hover:bg-blue-500 hover:text-white text-white text-xs font-semibold py-2 rounded-lg transition-colors flex items-center justify-center gap-1.5 border border-white/5 hover:border-blue-500"
+                          >
+                            <span className="material-symbols-outlined text-sm">
+                              edit
+                            </span>{" "}
+                            Edit
+                          </button>
+                          <button
+                            onClick={() => handleDownloadResume(resume)}
+                            className="w-8 h-8 flex items-center justify-center rounded-lg border border-white/5 bg-white/5 text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
+                            title="Download PDF"
+                          >
+                            <span className="material-symbols-outlined text-lg">
+                              download
+                            </span>
+                          </button>
+                          <button
+                            onClick={() =>
+                              handleDeleteResume(
+                                resume.resume_id,
+                                resume.title || "Untitled Resume",
+                              )
+                            }
+                            className="w-8 h-8 flex items-center justify-center rounded-lg border border-white/5 bg-white/5 text-slate-400 hover:text-red-400 hover:bg-red-500/10 hover:border-red-500/20 transition-colors"
+                            title="Delete Resume"
+                          >
+                            <span className="material-symbols-outlined text-lg">
+                              delete
+                            </span>
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                )}
 
                 {/* Add New Resume Card */}
                 <div
@@ -370,6 +578,208 @@ const Dashboard = () => {
           </section>
         </div>
       </main>
+
+      {/* Edit Profile Modal */}
+      {showEditProfile && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div
+            className="absolute inset-0 bg-black/70 backdrop-blur-sm"
+            onClick={() => setShowEditProfile(false)}
+          ></div>
+          <div className="relative bg-[#1E293B] rounded-2xl p-6 max-w-lg w-full max-h-[90vh] overflow-y-auto border border-white/10">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-xl font-bold text-white">Edit Profile</h3>
+              <button
+                onClick={() => setShowEditProfile(false)}
+                className="text-slate-400 hover:text-white transition-colors"
+              >
+                <span className="material-symbols-outlined">close</span>
+              </button>
+            </div>
+
+            {/* Profile Picture Upload */}
+            <div className="flex flex-col items-center mb-6">
+              <div
+                className="w-24 h-24 rounded-full bg-center bg-cover border-4 border-[#0F172A] mb-3"
+                style={{
+                  backgroundImage: profileForm.profile_picture
+                    ? `url('${profileForm.profile_picture}')`
+                    : "url('https://ui-avatars.com/api/?name=" +
+                      encodeURIComponent(
+                        (profileForm.first_name || "") +
+                          " " +
+                          (profileForm.last_name || ""),
+                      ) +
+                      "&background=3B82F6&color=fff&size=96')",
+                }}
+              ></div>
+              <label className="cursor-pointer text-blue-500 text-sm font-medium hover:text-blue-400 transition-colors">
+                Change Photo
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={handleImageUpload}
+                />
+              </label>
+            </div>
+
+            {/* Form Fields */}
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs text-slate-400 mb-1">
+                    First Name
+                  </label>
+                  <input
+                    type="text"
+                    value={profileForm.first_name}
+                    onChange={(e) =>
+                      setProfileForm((prev) => ({
+                        ...prev,
+                        first_name: e.target.value,
+                      }))
+                    }
+                    className="w-full bg-[#0F172A] border border-white/10 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-slate-400 mb-1">
+                    Last Name
+                  </label>
+                  <input
+                    type="text"
+                    value={profileForm.last_name}
+                    onChange={(e) =>
+                      setProfileForm((prev) => ({
+                        ...prev,
+                        last_name: e.target.value,
+                      }))
+                    }
+                    className="w-full bg-[#0F172A] border border-white/10 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-blue-500"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs text-slate-400 mb-1">
+                  Job Title
+                </label>
+                <input
+                  type="text"
+                  value={profileForm.title}
+                  onChange={(e) =>
+                    setProfileForm((prev) => ({
+                      ...prev,
+                      title: e.target.value,
+                    }))
+                  }
+                  placeholder="e.g., Senior Software Engineer"
+                  className="w-full bg-[#0F172A] border border-white/10 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs text-slate-400 mb-1">
+                  Location
+                </label>
+                <input
+                  type="text"
+                  value={profileForm.location}
+                  onChange={(e) =>
+                    setProfileForm((prev) => ({
+                      ...prev,
+                      location: e.target.value,
+                    }))
+                  }
+                  placeholder="e.g., San Francisco, CA"
+                  className="w-full bg-[#0F172A] border border-white/10 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs text-slate-400 mb-1">
+                  Phone Number
+                </label>
+                <input
+                  type="text"
+                  value={profileForm.contact?.[0] || ""}
+                  onChange={(e) =>
+                    setProfileForm((prev) => ({
+                      ...prev,
+                      contact: [e.target.value],
+                    }))
+                  }
+                  placeholder="e.g., +1 (555) 123-4567"
+                  className="w-full bg-[#0F172A] border border-white/10 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs text-slate-400 mb-1">
+                  Portfolio URL
+                </label>
+                <input
+                  type="text"
+                  value={profileForm.portfolio}
+                  onChange={(e) =>
+                    setProfileForm((prev) => ({
+                      ...prev,
+                      portfolio: e.target.value,
+                    }))
+                  }
+                  placeholder="e.g., https://yourportfolio.com"
+                  className="w-full bg-[#0F172A] border border-white/10 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs text-slate-400 mb-1">
+                  Professional Summary
+                </label>
+                <textarea
+                  value={profileForm.profile_summary}
+                  onChange={(e) =>
+                    setProfileForm((prev) => ({
+                      ...prev,
+                      profile_summary: e.target.value,
+                    }))
+                  }
+                  placeholder="Describe yourself professionally..."
+                  rows={3}
+                  className="w-full bg-[#0F172A] border border-white/10 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-blue-500 resize-none"
+                />
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={() => setShowEditProfile(false)}
+                className="flex-1 py-2.5 rounded-lg border border-white/10 text-white text-sm font-semibold hover:bg-white/5 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSaveProfile}
+                disabled={savingProfile}
+                className="flex-1 py-2.5 rounded-lg bg-blue-500 text-white text-sm font-semibold hover:bg-blue-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              >
+                {savingProfile ? (
+                  <>
+                    <span className="animate-spin material-symbols-outlined text-lg">
+                      progress_activity
+                    </span>
+                    Saving...
+                  </>
+                ) : (
+                  "Save Changes"
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
