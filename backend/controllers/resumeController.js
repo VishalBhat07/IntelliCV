@@ -300,8 +300,17 @@ function calculateMatchScore(userData) {
 // POST /api/resume/generate - Generate resume using Gemini
 exports.generateResume = async (req, res) => {
   const { user_id } = req.body;
+  const startTime = Date.now();
+
+  console.log("\n");
+  console.log("╔════════════════════════════════════════════════════════════╗");
+  console.log("║           🚀 RESUME GENERATION REQUEST RECEIVED            ║");
+  console.log("╚════════════════════════════════════════════════════════════╝");
+  console.log(`📅 Timestamp: ${new Date().toISOString()}`);
+  console.log(`👤 User ID: ${user_id}`);
 
   if (!user_id) {
+    console.log("❌ ERROR: user_id is missing from request");
     return res.status(400).json({ msg: "user_id is required" });
   }
 
@@ -322,22 +331,31 @@ exports.generateResume = async (req, res) => {
     console.log(`🔒 Resume generation lock acquired for user ${user_id}`);
 
     // Step 1: Fetch all user data from database
-    console.log(`Fetching all data for user ${user_id}...`);
+    console.log("\n📊 Step 1: Fetching user data from database...");
     const userData = await fetchAllUserData(user_id);
+    console.log(`   ✓ User profile: ${userData.user.name}`);
+    console.log(`   ✓ Education records: ${userData.education.length}`);
+    console.log(`   ✓ Certificates: ${userData.certificates.length}`);
+    console.log(`   ✓ Projects: ${userData.projects.length}`);
+    console.log(`   ✓ Job description: ${userData.jobDescription ? "Yes" : "No"}`);
 
     // Validate that user has necessary data
     if (!userData.education || userData.education.length === 0) {
+      console.log("❌ ERROR: No education data found for user");
       return res.status(400).json({
         msg: "User must have education data before generating resume",
       });
     }
 
     // Step 2: Generate resume using Gemini LLM
-    console.log("Generating resume with Gemini LLM...");
+    console.log("\n🤖 Step 2: Generating resume with Gemini LLM...");
     const resumeHtml = await generateResumeWithGemini(userData);
+    console.log(`   ✓ Resume HTML generated (${resumeHtml.length} characters)`);
 
     // Step 3: Calculate match score
+    console.log("\n📈 Step 3: Calculating match score...");
     const matchScore = calculateMatchScore(userData);
+    console.log(`   ✓ Match score: ${matchScore}%`);
 
     // Step 4: Get job_id if available
     const jobId = userData.jobDescription
@@ -345,16 +363,25 @@ exports.generateResume = async (req, res) => {
       : null;
 
     // Step 5: Save generated resume to database
+    console.log("\n💾 Step 4: Saving resume to database...");
     const savedResume = await GeneratedResume.create({
       user_id: user_id,
       job_id: jobId,
       generated_text: resumeHtml,
       match_score: matchScore,
     });
+    console.log(`   ✓ Resume saved with ID: ${savedResume.resume_id}`);
 
     // Release processing lock
     releaseProcessingLock(user_id);
-    console.log(`🔓 Resume generation lock released for user ${user_id}`);
+    
+    const duration = ((Date.now() - startTime) / 1000).toFixed(2);
+    console.log("\n╔════════════════════════════════════════════════════════════╗");
+    console.log("║         ✅ RESUME GENERATION COMPLETED SUCCESSFULLY        ║");
+    console.log("╚════════════════════════════════════════════════════════════╝");
+    console.log(`⏱️  Total time: ${duration} seconds`);
+    console.log(`🆔 Resume ID: ${savedResume.resume_id}`);
+    console.log("\n");
 
     res.json({
       msg: "Resume generated successfully",
@@ -368,11 +395,15 @@ exports.generateResume = async (req, res) => {
   } catch (error) {
     // Release processing lock on error
     releaseProcessingLock(user_id);
-    console.log(
-      `🔓 Resume generation lock released for user ${user_id} (error occurred)`,
-    );
+    
+    const duration = ((Date.now() - startTime) / 1000).toFixed(2);
+    console.log("\n╔════════════════════════════════════════════════════════════╗");
+    console.log("║            ❌ RESUME GENERATION FAILED                     ║");
+    console.log("╚════════════════════════════════════════════════════════════╝");
+    console.log(`⏱️  Failed after: ${duration} seconds`);
+    console.log(`❌ Error: ${error.message}`);
+    console.log("\n");
 
-    console.error("Error generating resume:", error);
     res.status(500).json({ error: error.message });
   }
 };
@@ -605,6 +636,240 @@ exports.deleteResume = async (req, res) => {
     res.json({ msg: "Resume deleted successfully", resume_id });
   } catch (error) {
     console.error("Error deleting resume:", error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// Regenerate resume with user prompt/feedback
+async function regenerateResumeWithGemini(currentResumeData, userPrompt) {
+  try {
+    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+
+    const prompt = `You are an expert resume writer and ATS optimization specialist. You need to IMPROVE an existing resume based on specific user feedback.
+
+CURRENT RESUME DATA:
+${JSON.stringify(currentResumeData, null, 2)}
+
+USER FEEDBACK/REQUEST:
+"${userPrompt}"
+
+INSTRUCTIONS:
+1. Carefully analyze the user's feedback and understand what they want to change
+2. Apply the requested changes while maintaining professionalism and ATS-friendliness
+3. Only modify the sections mentioned in the feedback; keep other sections unchanged unless improvement is necessary
+4. Use strong action verbs and quantifiable achievements
+5. Keep the formatting consistent with the original resume structure
+6. Return the improved resume in the EXACT SAME JSON structure as the input
+
+OUTPUT FORMAT:
+Return ONLY valid JSON matching this structure (no markdown code blocks, no explanations):
+{
+  "personal_info": {
+    "name": "Full Name",
+    "title": "Professional Title",
+    "email": "email@example.com",
+    "phone": "Phone number",
+    "location": "Location"
+  },
+  "summary": "Professional summary text",
+  "experience": [
+    {
+      "position": "Job Title",
+      "company": "Company Name",
+      "startDate": "Start Date",
+      "endDate": "End Date",
+      "location": "Location",
+      "description": "Bullet points with achievements"
+    }
+  ],
+  "education": [
+    {
+      "degree": "Degree Name",
+      "institution": "Institution Name",
+      "year": "Year",
+      "gpa": "GPA if available",
+      "highlights": ["Achievement 1", "Achievement 2"]
+    }
+  ],
+  "skills": {
+    "technical": ["Skill 1", "Skill 2"],
+    "tools": ["Tool 1", "Tool 2"],
+    "soft": ["Soft skill 1", "Soft skill 2"]
+  },
+  "projects": [
+    {
+      "title": "Project Name",
+      "description": "Description",
+      "technologies": ["Tech 1", "Tech 2"],
+      "link": "URL if available"
+    }
+  ],
+  "certifications": [
+    {
+      "title": "Certification Name",
+      "issuer": "Issuing Organization",
+      "date": "Date"
+    }
+  ]
+}
+
+Generate the improved resume JSON now:`;
+
+    const result = await retryWithBackoff(() => model.generateContent(prompt));
+    const response = await result.response;
+    let jsonText = response.text();
+
+    // Clean up markdown code blocks if present
+    jsonText = jsonText.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
+
+    // Parse the JSON response
+    let resumeData;
+    try {
+      resumeData = JSON.parse(jsonText);
+    } catch (parseError) {
+      console.error("Error parsing JSON response:", parseError);
+      console.log("Raw response:", jsonText);
+
+      // Try to extract JSON from the response
+      const startIdx = jsonText.indexOf("{");
+      const endIdx = jsonText.lastIndexOf("}") + 1;
+      if (startIdx !== -1 && endIdx > startIdx) {
+        const extractedJson = jsonText.substring(startIdx, endIdx);
+        resumeData = JSON.parse(extractedJson);
+      } else {
+        throw new Error("Failed to parse resume JSON from LLM response");
+      }
+    }
+
+    return resumeData;
+  } catch (error) {
+    console.error("Error regenerating resume with Gemini:", error);
+    throw error;
+  }
+}
+
+// POST /api/resume/regenerate - Regenerate resume with user feedback
+exports.regenerateResume = async (req, res) => {
+  const { user_id, resume_id, current_resume, user_prompt } = req.body;
+  const startTime = Date.now();
+
+  console.log("\n");
+  console.log("╔════════════════════════════════════════════════════════════╗");
+  console.log("║         🔄 RESUME REGENERATION REQUEST RECEIVED            ║");
+  console.log("╚════════════════════════════════════════════════════════════╝");
+  console.log(`📅 Timestamp: ${new Date().toISOString()}`);
+  console.log(`👤 User ID: ${user_id}`);
+  console.log(`🆔 Resume ID: ${resume_id || "New resume"}`);
+  console.log(`💬 User Prompt: "${user_prompt}"`);
+
+  if (!user_id) {
+    console.log("❌ ERROR: user_id is missing from request");
+    return res.status(400).json({ msg: "user_id is required" });
+  }
+
+  if (!user_prompt || !user_prompt.trim()) {
+    console.log("❌ ERROR: user_prompt is missing from request");
+    return res
+      .status(400)
+      .json({ msg: "user_prompt is required for regeneration" });
+  }
+
+  if (!current_resume) {
+    console.log("❌ ERROR: current_resume data is missing from request");
+    return res.status(400).json({ msg: "current_resume data is required" });
+  }
+
+  // Check if resume is already being regenerated for this user
+  if (isProcessing(user_id)) {
+    console.log(
+      `⚠️  Resume regeneration for user ${user_id} already in progress. Ignoring duplicate request.`,
+    );
+    return res.status(409).json({
+      msg: "Resume is already being regenerated for this user",
+      status: "processing",
+    });
+  }
+
+  try {
+    // Set processing lock
+    setProcessingLock(user_id);
+    console.log(`\n🔒 Resume regeneration lock acquired for user ${user_id}`);
+
+    // Log current resume sections for debugging
+    console.log("\n📋 Current Resume Sections:");
+    console.log(`   • Name: ${current_resume.personal_info?.name || "N/A"}`);
+    console.log(`   • Summary: ${current_resume.summary ? current_resume.summary.substring(0, 50) + "..." : "N/A"}`);
+    console.log(`   • Experience entries: ${current_resume.experience?.length || 0}`);
+    console.log(`   • Education entries: ${current_resume.education?.length || 0}`);
+    console.log(`   • Projects: ${current_resume.projects?.length || 0}`);
+    console.log(`   • Certifications: ${current_resume.certifications?.length || 0}`);
+
+    // Regenerate resume using Gemini LLM with user feedback
+    console.log("\n🤖 Sending to Gemini LLM for regeneration...");
+    console.log(`   Prompt: "${user_prompt}"`);
+    const regeneratedResumeData = await regenerateResumeWithGemini(
+      current_resume,
+      user_prompt,
+    );
+    console.log("   ✓ Gemini LLM response received and parsed");
+
+    // Log regenerated resume sections
+    console.log("\n📝 Regenerated Resume Sections:");
+    console.log(`   • Name: ${regeneratedResumeData.personal_info?.name || "N/A"}`);
+    console.log(`   • Summary: ${regeneratedResumeData.summary ? regeneratedResumeData.summary.substring(0, 50) + "..." : "N/A"}`);
+    console.log(`   • Experience entries: ${regeneratedResumeData.experience?.length || 0}`);
+    console.log(`   • Education entries: ${regeneratedResumeData.education?.length || 0}`);
+    console.log(`   • Projects: ${regeneratedResumeData.projects?.length || 0}`);
+    console.log(`   • Certifications: ${regeneratedResumeData.certifications?.length || 0}`);
+
+    // NOTE: We do NOT save to database here!
+    // The regenerated data is returned as a PREVIEW only.
+    // User must click "Save" button to persist changes to the database.
+    console.log("\n📌 Regenerated data returned as PREVIEW (not saved to DB)");
+    console.log("   User must click 'Save' to persist changes.");
+
+    // Release processing lock
+    releaseProcessingLock(user_id);
+    
+    const duration = ((Date.now() - startTime) / 1000).toFixed(2);
+    console.log("\n╔════════════════════════════════════════════════════════════╗");
+    console.log("║       ✅ RESUME REGENERATION COMPLETED SUCCESSFULLY        ║");
+    console.log("║          (Preview only - not saved to database)            ║");
+    console.log("╚════════════════════════════════════════════════════════════╝");
+    console.log(`⏱️  Total time: ${duration} seconds`);
+    console.log(`🆔 Resume ID (for reference): ${resume_id || "N/A"}`);
+    console.log("\n");
+
+    // Return the regenerated data as preview
+    // The resume_id stays the same (user's existing resume ID)
+    res.json({
+      msg: "Resume regenerated successfully (preview)",
+      resume_id: resume_id, // Keep the original resume_id so Save can update it
+      isPreview: true, // Flag to indicate this is just a preview
+      resume: {
+        resume_id: resume_id,
+        personal_info: regeneratedResumeData.personal_info,
+        summary: regeneratedResumeData.summary,
+        experience: regeneratedResumeData.experience,
+        education: regeneratedResumeData.education,
+        skills: regeneratedResumeData.skills,
+        projects: regeneratedResumeData.projects,
+        certifications: regeneratedResumeData.certifications,
+        timestamp: new Date(),
+      },
+    });
+  } catch (error) {
+    // Release processing lock on error
+    releaseProcessingLock(user_id);
+    
+    const duration = ((Date.now() - startTime) / 1000).toFixed(2);
+    console.log("\n╔════════════════════════════════════════════════════════════╗");
+    console.log("║          ❌ RESUME REGENERATION FAILED                     ║");
+    console.log("╚════════════════════════════════════════════════════════════╝");
+    console.log(`⏱️  Failed after: ${duration} seconds`);
+    console.log(`❌ Error: ${error.message}`);
+    console.log("\n");
+
     res.status(500).json({ error: error.message });
   }
 };

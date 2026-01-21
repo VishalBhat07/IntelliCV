@@ -5,6 +5,9 @@ const resumeController = require("../controllers/resumeController");
 // POST /api/resume/generate - Generate resume with Gemini
 router.post("/generate", resumeController.generateResume);
 
+// POST /api/resume/regenerate - Regenerate resume with user feedback
+router.post("/regenerate", resumeController.regenerateResume);
+
 // POST /api/resume/save - Save or update a resume
 router.post("/save", resumeController.saveResume);
 

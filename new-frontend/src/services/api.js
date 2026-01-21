@@ -160,6 +160,17 @@ export const resumeAPI = {
     return response.data;
   },
 
+  // Regenerate resume with user feedback prompt
+  regenerate: async (userId, resumeId, currentResume, userPrompt) => {
+    const response = await api.post("/resume/regenerate", {
+      user_id: userId,
+      resume_id: resumeId,
+      current_resume: currentResume,
+      user_prompt: userPrompt,
+    });
+    return response.data;
+  },
+
   // Export resume as PDF
   exportPdf: async (html, fileName) => {
     const response = await api.post(

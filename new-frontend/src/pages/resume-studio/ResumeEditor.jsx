@@ -10,9 +10,16 @@ const ResumeEditor = ({ resumeData, resumeId: existingResumeId }) => {
   const [activeTab, setActiveTab] = useState("edit");
   const [zoom, setZoom] = useState(100);
   const [isSaving, setIsSaving] = useState(false);
+  const [isRegenerating, setIsRegenerating] = useState(false);
   const [currentResumeId, setCurrentResumeId] = useState(
     existingResumeId || null,
   );
+  
+  // State for undo functionality and change highlighting
+  const [originalResume, setOriginalResume] = useState(null);
+  const [canUndo, setCanUndo] = useState(false);
+  const [changedFields, setChangedFields] = useState({});
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
   // Sample resume data - will be replaced with actual generated data
   const [editorData, setEditorData] = useState({
@@ -67,8 +74,7 @@ const ResumeEditor = ({ resumeData, resumeId: existingResumeId }) => {
   useEffect(() => {
     if (resumeData) {
       console.log("Loading resume data:", resumeData);
-      // Update editorData with actual resume data
-      setEditorData({
+      const newEditorData = {
         name: resumeData.personal_info?.name || "Your Name",
         title: resumeData.personal_info?.title || "Your Title",
         email: resumeData.personal_info?.email || "",
@@ -80,9 +86,31 @@ const ResumeEditor = ({ resumeData, resumeId: existingResumeId }) => {
         skills: resumeData.skills || { technical: [], tools: [], soft: [] },
         projects: resumeData.projects || [],
         certifications: resumeData.certifications || [],
-      });
+      };
+      
+      // Update editorData with actual resume data
+      setEditorData(newEditorData);
+      
+      // Store original resume in localStorage for undo functionality
+      // Only store if not already stored (first load)
+      const storedOriginal = localStorage.getItem(`originalResume_${user?.user_id}`);
+      if (!storedOriginal) {
+        localStorage.setItem(`originalResume_${user?.user_id}`, JSON.stringify(newEditorData));
+        setOriginalResume(newEditorData);
+        console.log("📦 Original resume stored in localStorage for undo functionality");
+      } else {
+        setOriginalResume(JSON.parse(storedOriginal));
+        // Check if we can undo (if there was a previous regeneration)
+        const hasUndoData = localStorage.getItem(`canUndo_${user?.user_id}`);
+        if (hasUndoData === 'true') {
+          setCanUndo(true);
+        }
+      }
+      
+      // Clear changed fields when loading fresh data
+      setChangedFields({});
     }
-  }, [resumeData]);
+  }, [resumeData, user?.user_id]);
 
   const handleSave = async () => {
     try {
@@ -115,6 +143,17 @@ const ResumeEditor = ({ resumeData, resumeId: existingResumeId }) => {
       if (response.resume?.resume_id && !currentResumeId) {
         setCurrentResumeId(response.resume.resume_id);
       }
+
+      // Clear unsaved changes flag
+      setHasUnsavedChanges(false);
+      
+      // Update the original resume to be the current saved state
+      // This makes the saved version the new "original" for undo purposes
+      const currentData = { ...editorData };
+      localStorage.setItem(`originalResume_${user?.user_id}`, JSON.stringify(currentData));
+      setOriginalResume(currentData);
+      setCanUndo(false);
+      localStorage.setItem(`canUndo_${user?.user_id}`, 'false');
 
       toast.success("Resume saved successfully!");
     } catch (error) {
@@ -175,12 +214,158 @@ ${editorData.skills?.technical?.length > 0 || editorData.skills?.tools?.length >
     toast.success("AI is optimizing your content...");
   };
 
-  const handleRegenerate = () => {
-    if (aiPrompt.trim()) {
-      toast.success("Regenerating content based on your request...");
-      setAiPrompt("");
-    } else {
+  // Helper function to detect changed fields between old and new data
+  const detectChanges = (oldData, newData) => {
+    const changes = {};
+    
+    // Check simple string fields
+    if (oldData.name !== newData.name) changes.name = true;
+    if (oldData.title !== newData.title) changes.title = true;
+    if (oldData.email !== newData.email) changes.email = true;
+    if (oldData.phone !== newData.phone) changes.phone = true;
+    if (oldData.location !== newData.location) changes.location = true;
+    if (oldData.summary !== newData.summary) changes.summary = true;
+    
+    // Check arrays by comparing JSON strings
+    if (JSON.stringify(oldData.experience) !== JSON.stringify(newData.experience)) {
+      changes.experience = true;
+    }
+    if (JSON.stringify(oldData.education) !== JSON.stringify(newData.education)) {
+      changes.education = true;
+    }
+    if (JSON.stringify(oldData.skills) !== JSON.stringify(newData.skills)) {
+      changes.skills = true;
+    }
+    if (JSON.stringify(oldData.projects) !== JSON.stringify(newData.projects)) {
+      changes.projects = true;
+    }
+    if (JSON.stringify(oldData.certifications) !== JSON.stringify(newData.certifications)) {
+      changes.certifications = true;
+    }
+    
+    return changes;
+  };
+
+  // Handle undo - restore original resume
+  const handleUndo = () => {
+    if (!originalResume) {
+      toast.error("No original resume available to restore");
+      return;
+    }
+    
+    setEditorData(originalResume);
+    setChangedFields({});
+    setCanUndo(false);
+    localStorage.setItem(`canUndo_${user?.user_id}`, 'false');
+    toast.success("Original resume restored!");
+  };
+
+  const handleRegenerate = async () => {
+    if (!aiPrompt.trim()) {
       toast.error("Please enter a prompt for AI regeneration");
+      return;
+    }
+
+    if (!user?.user_id) {
+      toast.error("User not found. Please log in again.");
+      return;
+    }
+
+    try {
+      setIsRegenerating(true);
+      toast.loading("AI is regenerating your resume...", { id: "regenerate" });
+
+      // Store current data for undo before regenerating
+      const currentDataForUndo = { ...editorData };
+      
+      // If this is the first regeneration, store the original
+      if (!originalResume) {
+        localStorage.setItem(`originalResume_${user.user_id}`, JSON.stringify(currentDataForUndo));
+        setOriginalResume(currentDataForUndo);
+        console.log("📦 Storing original resume for undo functionality");
+      }
+
+      // Prepare the current resume data to send to the API
+      const currentResumeData = {
+        personal_info: {
+          name: editorData.name,
+          title: editorData.title,
+          email: editorData.email,
+          phone: editorData.phone,
+          location: editorData.location,
+        },
+        summary: editorData.summary,
+        experience: editorData.experience,
+        education: editorData.education,
+        skills: editorData.skills,
+        projects: editorData.projects,
+        certifications: editorData.certifications,
+      };
+
+      // Call the regenerate API
+      const response = await resumeAPI.regenerate(
+        user.user_id,
+        currentResumeId,
+        currentResumeData,
+        aiPrompt.trim(),
+      );
+
+      // Update the editor with the regenerated resume data
+      if (response.resume) {
+        const newEditorData = {
+          name: response.resume.personal_info?.name || editorData.name,
+          title: response.resume.personal_info?.title || editorData.title,
+          email: response.resume.personal_info?.email || editorData.email,
+          phone: response.resume.personal_info?.phone || editorData.phone,
+          location:
+            response.resume.personal_info?.location || editorData.location,
+          summary: response.resume.summary || editorData.summary,
+          experience: response.resume.experience || editorData.experience,
+          education: response.resume.education || editorData.education,
+          skills: response.resume.skills || editorData.skills,
+          projects: response.resume.projects || editorData.projects,
+          certifications:
+            response.resume.certifications || editorData.certifications,
+        };
+        
+        // Detect which fields changed
+        const changes = detectChanges(currentDataForUndo, newEditorData);
+        setChangedFields(changes);
+        console.log("🔍 Changed fields:", Object.keys(changes));
+        
+        // Update editor data
+        setEditorData(newEditorData);
+        
+        // Enable undo functionality
+        setCanUndo(true);
+        localStorage.setItem(`canUndo_${user.user_id}`, 'true');
+
+        // Update the resume ID if a new one was created
+        if (response.resume_id) {
+          setCurrentResumeId(response.resume_id);
+        }
+
+        // Mark that we have unsaved changes (regeneration is just a preview)
+        setHasUnsavedChanges(true);
+        
+        toast.success("Resume regenerated! Click Save to keep changes.", { id: "regenerate", duration: 5000 });
+        setAiPrompt("");
+        
+        // Clear highlights after 10 seconds
+        setTimeout(() => {
+          setChangedFields({});
+        }, 10000);
+      }
+    } catch (error) {
+      console.error("Failed to regenerate resume:", error);
+      toast.error(
+        error.response?.data?.msg ||
+          error.message ||
+          "Failed to regenerate resume",
+        { id: "regenerate" },
+      );
+    } finally {
+      setIsRegenerating(false);
     }
   };
 
@@ -248,7 +433,11 @@ ${editorData.skills?.technical?.length > 0 || editorData.skills?.tools?.length >
           <button
             onClick={handleSave}
             disabled={isSaving}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-[#1E293B] border border-white/10 text-white font-bold text-sm hover:bg-white/5 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg font-bold text-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed ${
+              hasUnsavedChanges 
+                ? 'bg-amber-500 hover:bg-amber-600 text-white animate-pulse shadow-lg shadow-amber-500/30' 
+                : 'bg-[#1E293B] border border-white/10 text-white hover:bg-white/5'
+            }`}
           >
             {isSaving ? (
               <>
@@ -260,7 +449,7 @@ ${editorData.skills?.technical?.length > 0 || editorData.skills?.tools?.length >
             ) : (
               <>
                 <span className="material-symbols-outlined text-lg">save</span>
-                <span className="hidden sm:inline">Save</span>
+                <span className="hidden sm:inline">{hasUnsavedChanges ? 'Save Changes' : 'Save'}</span>
               </>
             )}
           </button>
@@ -283,9 +472,33 @@ ${editorData.skills?.technical?.length > 0 || editorData.skills?.tools?.length >
       </header>
 
       {/* Main Content */}
-      <main className="flex-1 flex overflow-hidden">
+      <main className="flex-1 flex overflow-hidden relative">
+        {/* Regeneration Overlay - blocks interaction during regeneration */}
+        {isRegenerating && (
+          <div className="absolute inset-0 bg-slate-900/80 backdrop-blur-sm z-50 flex flex-col items-center justify-center">
+            <div className="flex flex-col items-center gap-6 bg-[#1E293B] p-8 rounded-2xl border border-white/10 shadow-2xl">
+              <div className="relative">
+                <div className="w-20 h-20 rounded-full border-4 border-emerald-500/30 border-t-emerald-500 animate-spin"></div>
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <span className="material-symbols-outlined text-3xl text-emerald-500">auto_awesome</span>
+                </div>
+              </div>
+              <div className="text-center">
+                <h3 className="text-white text-xl font-bold mb-2">AI is Regenerating Your Resume</h3>
+                <p className="text-slate-400 text-sm max-w-sm">
+                  Analyzing your feedback and improving the content. This may take a few seconds...
+                </p>
+              </div>
+              <div className="flex items-center gap-2 text-emerald-500 text-sm">
+                <span className="material-symbols-outlined text-lg animate-pulse">tips_and_updates</span>
+                <span>Please wait while the magic happens</span>
+              </div>
+            </div>
+          </div>
+        )}
+        
         {/* Editor Panel */}
-        <div className="flex-1 flex flex-col min-w-0 border-r border-white/10 bg-[#0F172A] relative">
+        <div className={`flex-1 flex flex-col min-w-0 border-r border-white/10 bg-[#0F172A] relative ${isRegenerating ? 'pointer-events-none' : ''}`}>
           {/* Toolbar */}
           <div className="flex-none px-6 py-3 border-b border-white/5 bg-[#1E293B]/50 flex items-center justify-between gap-4 overflow-x-auto">
             <div className="flex items-center gap-1">
@@ -409,12 +622,23 @@ ${editorData.skills?.technical?.length > 0 || editorData.skills?.tools?.length >
                   Professional Summary
                 </h3>
                 <textarea
-                  className="w-full bg-transparent text-slate-300 text-sm leading-relaxed resize-none overflow-visible focus:outline-none"
+                  className="w-full bg-transparent text-slate-300 text-sm leading-relaxed resize-none overflow-hidden focus:outline-none"
                   spellCheck="false"
                   value={editorData.summary}
                   onChange={(e) =>
                     setEditorData({ ...editorData, summary: e.target.value })
                   }
+                  style={{ overflow: "hidden" }}
+                  ref={(el) => {
+                    if (el) {
+                      el.style.height = "auto";
+                      el.style.height = el.scrollHeight + "px";
+                    }
+                  }}
+                  onInput={(e) => {
+                    e.target.style.height = "auto";
+                    e.target.style.height = e.target.scrollHeight + "px";
+                  }}
                 />
               </div>
 
@@ -854,32 +1078,53 @@ ${editorData.skills?.technical?.length > 0 || editorData.skills?.tools?.length >
                     auto_awesome
                   </span>
                   AI Copilot
+                  {Object.keys(changedFields).length > 0 && (
+                    <span className="ml-2 px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-400 text-[10px] font-bold animate-pulse">
+                      {Object.keys(changedFields).length} sections updated
+                    </span>
+                  )}
                 </label>
                 <div className="relative group">
                   <div className="absolute inset-0 bg-gradient-to-r from-emerald-500 to-blue-500 rounded-lg blur opacity-20 group-focus-within:opacity-40 transition-opacity"></div>
                   <div className="relative flex items-center bg-[#1E293B] border border-white/10 rounded-lg overflow-hidden">
                     <input
-                      className="w-full bg-transparent border-none text-white placeholder-slate-500 py-3 px-4 focus:ring-0 text-sm"
+                      className="w-full bg-transparent border-none text-white placeholder-slate-500 py-3 px-4 focus:ring-0 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
                       placeholder="e.g. Rewrite the summary to focus more on leadership..."
                       type="text"
                       value={aiPrompt}
                       onChange={(e) => setAiPrompt(e.target.value)}
                       onKeyPress={(e) => {
-                        if (e.key === "Enter") handleRegenerate();
+                        if (e.key === "Enter" && !isRegenerating) handleRegenerate();
                       }}
+                      disabled={isRegenerating}
                     />
-                    <button className="p-2 mr-1 text-slate-400 hover:text-white transition-colors">
+                    <button className="p-2 mr-1 text-slate-400 hover:text-white transition-colors disabled:opacity-50" disabled={isRegenerating}>
                       <span className="material-symbols-outlined">mic</span>
                     </button>
                   </div>
                 </div>
               </div>
+              {/* Undo Button - shows when regeneration was done */}
+              {canUndo && (
+                <button
+                  onClick={handleUndo}
+                  disabled={isRegenerating}
+                  className="h-[46px] px-4 rounded-lg bg-slate-700 hover:bg-slate-600 text-white font-bold text-sm transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed border border-slate-600"
+                  title="Restore original resume"
+                >
+                  <span className="material-symbols-outlined">undo</span>
+                  <span className="hidden sm:inline">Undo</span>
+                </button>
+              )}
               <button
                 onClick={handleRegenerate}
-                className="h-[46px] px-6 rounded-lg bg-gradient-to-r from-emerald-600 to-emerald-500 text-white font-bold text-sm shadow-[0_0_15px_rgba(16,185,129,0.3)] hover:shadow-[0_0_20px_rgba(16,185,129,0.5)] hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center gap-2"
+                disabled={isRegenerating}
+                className={`h-[46px] px-6 rounded-lg bg-gradient-to-r from-emerald-600 to-emerald-500 text-white font-bold text-sm shadow-[0_0_15px_rgba(16,185,129,0.3)] hover:shadow-[0_0_20px_rgba(16,185,129,0.5)] hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 disabled:hover:shadow-[0_0_15px_rgba(16,185,129,0.3)]`}
               >
-                <span className="material-symbols-outlined">refresh</span>
-                Regenerate
+                <span className={`material-symbols-outlined ${isRegenerating ? 'animate-spin' : ''}`}>
+                  {isRegenerating ? 'progress_activity' : 'refresh'}
+                </span>
+                {isRegenerating ? 'Regenerating...' : 'Regenerate'}
               </button>
             </div>
           </div>
@@ -930,30 +1175,30 @@ ${editorData.skills?.technical?.length > 0 || editorData.skills?.tools?.length >
               style={{ transform: `scale(${zoom / 100})` }}
             >
               {/* PDF Preview Content */}
-              <div className="border-b-2 border-gray-800 pb-4 mb-4">
-                <h1 className="text-3xl font-serif font-bold text-gray-900 uppercase tracking-widest mb-1">
+              <div className={`border-b-2 border-gray-800 pb-4 mb-4 transition-all duration-500 ${(changedFields.name || changedFields.title || changedFields.email || changedFields.phone) ? 'bg-amber-100 ring-2 ring-amber-400 rounded-lg p-3 -m-3' : ''}`}>
+                <h1 className={`text-3xl font-serif font-bold text-gray-900 uppercase tracking-widest mb-1 ${changedFields.name ? 'text-amber-700' : ''}`}>
                   {editorData.name}
                 </h1>
-                <p className="text-sm text-gray-600 font-sans tracking-wide uppercase">
+                <p className={`text-sm text-gray-600 font-sans tracking-wide uppercase ${changedFields.title ? 'text-amber-700' : ''}`}>
                   {editorData.title}
                 </p>
                 <div className="mt-2 text-gray-500 font-sans text-[10px] flex gap-3">
-                  <span>{editorData.email}</span> •{" "}
-                  <span>{editorData.phone}</span> •{" "}
+                  <span className={changedFields.email ? 'text-amber-700 font-bold' : ''}>{editorData.email}</span> •{" "}
+                  <span className={changedFields.phone ? 'text-amber-700 font-bold' : ''}>{editorData.phone}</span> •{" "}
                   <span>San Francisco, CA</span>
                 </div>
               </div>
-              <div className="mb-4">
-                <h2 className="text-sm font-bold text-gray-800 uppercase border-b border-gray-300 pb-1 mb-2">
-                  Professional Summary
+              <div className={`mb-4 transition-all duration-500 ${changedFields.summary ? 'bg-amber-100 ring-2 ring-amber-400 rounded-lg p-3 -m-1' : ''}`}>
+                <h2 className={`text-sm font-bold uppercase border-b pb-1 mb-2 ${changedFields.summary ? 'text-amber-700 border-amber-400' : 'text-gray-800 border-gray-300'}`}>
+                  Professional Summary {changedFields.summary && <span className="text-[10px] font-normal text-amber-600 ml-2">✨ Updated</span>}
                 </h2>
                 <p className="text-justify text-gray-700">
                   {editorData.summary}
                 </p>
               </div>
-              <div className="mb-4">
-                <h2 className="text-sm font-bold text-gray-800 uppercase border-b border-gray-300 pb-1 mb-3">
-                  Experience
+              <div className={`mb-4 transition-all duration-500 ${changedFields.experience ? 'bg-amber-100 ring-2 ring-amber-400 rounded-lg p-3 -m-1' : ''}`}>
+                <h2 className={`text-sm font-bold uppercase border-b pb-1 mb-3 ${changedFields.experience ? 'text-amber-700 border-amber-400' : 'text-gray-800 border-gray-300'}`}>
+                  Experience {changedFields.experience && <span className="text-[10px] font-normal text-amber-600 ml-2">✨ Updated</span>}
                 </h2>
                 {editorData.experience.map((exp) => (
                   <div key={exp.id} className="mb-3">
@@ -977,9 +1222,9 @@ ${editorData.skills?.technical?.length > 0 || editorData.skills?.tools?.length >
                   </div>
                 ))}
               </div>
-              <div className="mb-4">
-                <h2 className="text-sm font-bold text-gray-800 uppercase border-b border-gray-300 pb-1 mb-3">
-                  Education
+              <div className={`mb-4 transition-all duration-500 ${changedFields.education ? 'bg-amber-100 ring-2 ring-amber-400 rounded-lg p-3 -m-1' : ''}`}>
+                <h2 className={`text-sm font-bold uppercase border-b pb-1 mb-3 ${changedFields.education ? 'text-amber-700 border-amber-400' : 'text-gray-800 border-gray-300'}`}>
+                  Education {changedFields.education && <span className="text-[10px] font-normal text-amber-600 ml-2">✨ Updated</span>}
                 </h2>
                 {editorData.education.map((edu) => (
                   <div key={edu.id} className="mb-3">
@@ -995,9 +1240,9 @@ ${editorData.skills?.technical?.length > 0 || editorData.skills?.tools?.length >
                   </div>
                 ))}
               </div>
-              <div className="mb-4">
-                <h2 className="text-sm font-bold text-gray-800 uppercase border-b border-gray-300 pb-1 mb-3">
-                  Skills
+              <div className={`mb-4 transition-all duration-500 ${changedFields.skills ? 'bg-amber-100 ring-2 ring-amber-400 rounded-lg p-3 -m-1' : ''}`}>
+                <h2 className={`text-sm font-bold uppercase border-b pb-1 mb-3 ${changedFields.skills ? 'text-amber-700 border-amber-400' : 'text-gray-800 border-gray-300'}`}>
+                  Skills {changedFields.skills && <span className="text-[10px] font-normal text-amber-600 ml-2">✨ Updated</span>}
                 </h2>
                 <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-gray-700">
                   {editorData.skills?.technical?.length > 0 && (
@@ -1023,9 +1268,9 @@ ${editorData.skills?.technical?.length > 0 || editorData.skills?.tools?.length >
 
               {/* Projects Section */}
               {editorData.projects?.length > 0 && (
-                <div className="mb-4">
-                  <h2 className="text-sm font-bold text-gray-800 uppercase border-b border-gray-300 pb-1 mb-3">
-                    Projects
+                <div className={`mb-4 transition-all duration-500 ${changedFields.projects ? 'bg-amber-100 ring-2 ring-amber-400 rounded-lg p-3 -m-1' : ''}`}>
+                  <h2 className={`text-sm font-bold uppercase border-b pb-1 mb-3 ${changedFields.projects ? 'text-amber-700 border-amber-400' : 'text-gray-800 border-gray-300'}`}>
+                    Projects {changedFields.projects && <span className="text-[10px] font-normal text-amber-600 ml-2">✨ Updated</span>}
                   </h2>
                   {editorData.projects.map((project, idx) => (
                     <div key={idx} className="mb-3">
@@ -1047,9 +1292,9 @@ ${editorData.skills?.technical?.length > 0 || editorData.skills?.tools?.length >
 
               {/* Certifications Section */}
               {editorData.certifications?.length > 0 && (
-                <div className="mb-4">
-                  <h2 className="text-sm font-bold text-gray-800 uppercase border-b border-gray-300 pb-1 mb-3">
-                    Certifications
+                <div className={`mb-4 transition-all duration-500 ${changedFields.certifications ? 'bg-amber-100 ring-2 ring-amber-400 rounded-lg p-3 -m-1' : ''}`}>
+                  <h2 className={`text-sm font-bold uppercase border-b pb-1 mb-3 ${changedFields.certifications ? 'text-amber-700 border-amber-400' : 'text-gray-800 border-gray-300'}`}>
+                    Certifications {changedFields.certifications && <span className="text-[10px] font-normal text-amber-600 ml-2">✨ Updated</span>}
                   </h2>
                   {editorData.certifications.map((cert, idx) => (
                     <div key={idx} className="mb-2">
