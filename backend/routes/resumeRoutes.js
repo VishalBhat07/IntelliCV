@@ -8,6 +8,9 @@ router.post("/generate", resumeController.generateResume);
 // POST /api/resume/regenerate - Regenerate resume with user feedback
 router.post("/regenerate", resumeController.regenerateResume);
 
+// POST /api/resume/analyze-ats - Analyze resume for ATS compatibility
+router.post("/analyze-ats", resumeController.analyzeATS);
+
 // POST /api/resume/save - Save or update a resume
 router.post("/save", resumeController.saveResume);
 

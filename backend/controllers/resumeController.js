@@ -874,4 +874,180 @@ exports.regenerateResume = async (req, res) => {
   }
 };
 
+// POST /api/resume/analyze-ats - Analyze resume for ATS compatibility
+exports.analyzeATS = async (req, res) => {
+  const { resume_id, resume_data, job_description } = req.body;
+  const startTime = Date.now();
+
+  console.log("\n");
+  console.log("╔════════════════════════════════════════════════════════════╗");
+  console.log("║           📊 ATS ANALYSIS REQUEST RECEIVED                 ║");
+  console.log("╚════════════════════════════════════════════════════════════╝");
+  console.log(`📅 Timestamp: ${new Date().toISOString()}`);
+  console.log(`🆔 Resume ID: ${resume_id || "N/A"}`);
+
+  if (!resume_data) {
+    console.log("❌ ERROR: resume_data is missing from request");
+    return res.status(400).json({ msg: "resume_data is required" });
+  }
+
+  try {
+    await throttleRequest();
+
+    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+
+    // Build resume text for analysis
+    const resumeText = `
+Name: ${resume_data.personal_info?.name || "N/A"}
+Title: ${resume_data.personal_info?.title || "N/A"}
+Email: ${resume_data.personal_info?.email || "N/A"}
+
+SUMMARY:
+${resume_data.summary || "No summary provided"}
+
+EXPERIENCE:
+${resume_data.experience?.map(exp => `
+- ${exp.position} at ${exp.company} (${exp.startDate} - ${exp.endDate})
+  ${exp.description}
+`).join("\n") || "No experience listed"}
+
+EDUCATION:
+${resume_data.education?.map(edu => `
+- ${edu.degree} from ${edu.institution} (${edu.year})
+`).join("\n") || "No education listed"}
+
+SKILLS:
+Technical: ${resume_data.skills?.technical?.join(", ") || "None listed"}
+Tools: ${resume_data.skills?.tools?.join(", ") || "None listed"}
+Soft Skills: ${resume_data.skills?.soft?.join(", ") || "None listed"}
+
+PROJECTS:
+${resume_data.projects?.map(proj => `
+- ${proj.title}: ${proj.description}
+  Technologies: ${proj.technologies?.join(", ") || "N/A"}
+`).join("\n") || "No projects listed"}
+
+CERTIFICATIONS:
+${resume_data.certifications?.map(cert => `
+- ${cert.title} by ${cert.issuer} (${cert.date})
+`).join("\n") || "No certifications listed"}
+`;
+
+    const jobDescText = job_description || "General job application (no specific job description provided)";
+
+    const prompt = `You are an expert ATS (Applicant Tracking System) analyzer. Analyze the following resume against the job description and provide a comprehensive ATS compatibility score.
+
+RESUME:
+${resumeText}
+
+JOB DESCRIPTION:
+${jobDescText}
+
+Analyze the resume and return a JSON object with the following structure. Be strict but fair in your scoring:
+
+{
+  "overall_score": <number 0-100>,
+  "section_scores": {
+    "keywords": <number 0-100, how well keywords from JD are present>,
+    "skills": <number 0-100, how relevant are the skills>,
+    "experience": <number 0-100, relevance and strength of experience>,
+    "education": <number 0-100, relevance of education>,
+    "format": <number 0-100, how ATS-friendly is the format>
+  },
+  "missing_keywords": [<list of important keywords from job description that are missing, max 8>],
+  "suggestions": [<list of 4-6 specific, actionable suggestions to improve the resume>],
+  "strengths": [<list of 3-4 strong points of the resume>]
+}
+
+IMPORTANT SCORING GUIDELINES:
+- 85-100: Excellent match, highly likely to pass ATS
+- 70-84: Good match, likely to pass with minor improvements
+- 50-69: Moderate match, needs significant improvements
+- Below 50: Poor match, major revisions needed
+
+${!job_description ? "Since no specific job description was provided, analyze for general ATS best practices and score accordingly." : ""}
+
+Return ONLY valid JSON, no markdown formatting or explanations.`;
+
+    console.log("\n🤖 Sending to Gemini for ATS analysis...");
+    
+    const result = await model.generateContent(prompt);
+    const response = await result.response;
+    let analysisText = response.text();
+
+    console.log("   ✓ Gemini response received");
+
+    // Parse the JSON response
+    let atsAnalysis;
+    try {
+      // Remove markdown code blocks if present
+      analysisText = analysisText.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
+      atsAnalysis = JSON.parse(analysisText);
+    } catch (parseError) {
+      console.error("Error parsing ATS analysis JSON:", parseError);
+      // Try to extract JSON from the response
+      const startIdx = analysisText.indexOf("{");
+      const endIdx = analysisText.lastIndexOf("}") + 1;
+      if (startIdx !== -1 && endIdx > startIdx) {
+        const extractedJson = analysisText.substring(startIdx, endIdx);
+        atsAnalysis = JSON.parse(extractedJson);
+      } else {
+        throw new Error("Failed to parse ATS analysis from LLM response");
+      }
+    }
+
+    // Add timestamp
+    atsAnalysis.analyzed_at = new Date().toISOString();
+
+    console.log("\n📊 ATS Analysis Results:");
+    console.log(`   • Overall Score: ${atsAnalysis.overall_score}%`);
+    console.log(`   • Keywords Score: ${atsAnalysis.section_scores?.keywords}%`);
+    console.log(`   • Skills Score: ${atsAnalysis.section_scores?.skills}%`);
+    console.log(`   • Experience Score: ${atsAnalysis.section_scores?.experience}%`);
+    console.log(`   • Education Score: ${atsAnalysis.section_scores?.education}%`);
+    console.log(`   • Format Score: ${atsAnalysis.section_scores?.format}%`);
+    console.log(`   • Missing Keywords: ${atsAnalysis.missing_keywords?.length || 0}`);
+    console.log(`   • Suggestions: ${atsAnalysis.suggestions?.length || 0}`);
+
+    // If resume_id is provided, update the resume in database
+    if (resume_id) {
+      try {
+        const resume = await GeneratedResume.findByPk(resume_id);
+        if (resume) {
+          resume.match_score = atsAnalysis.overall_score;
+          resume.ats_analysis = atsAnalysis;
+          await resume.save();
+          console.log(`   ✓ Resume ${resume_id} updated with ATS analysis`);
+        }
+      } catch (dbError) {
+        console.error("Error saving ATS analysis to database:", dbError);
+        // Continue anyway, we can still return the analysis
+      }
+    }
+
+    const duration = ((Date.now() - startTime) / 1000).toFixed(2);
+    console.log("\n╔════════════════════════════════════════════════════════════╗");
+    console.log("║         ✅ ATS ANALYSIS COMPLETED SUCCESSFULLY             ║");
+    console.log("╚════════════════════════════════════════════════════════════╝");
+    console.log(`⏱️  Total time: ${duration} seconds`);
+    console.log("\n");
+
+    res.json({
+      msg: "ATS analysis completed successfully",
+      analysis: atsAnalysis,
+    });
+
+  } catch (error) {
+    const duration = ((Date.now() - startTime) / 1000).toFixed(2);
+    console.log("\n╔════════════════════════════════════════════════════════════╗");
+    console.log("║            ❌ ATS ANALYSIS FAILED                          ║");
+    console.log("╚════════════════════════════════════════════════════════════╝");
+    console.log(`⏱️  Failed after: ${duration} seconds`);
+    console.log(`❌ Error: ${error.message}`);
+    console.log("\n");
+
+    res.status(500).json({ error: error.message });
+  }
+};
+
 module.exports = exports;

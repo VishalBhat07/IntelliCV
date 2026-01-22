@@ -84,6 +84,26 @@ const GeneratedResume = sequelize.define(
       type: DataTypes.FLOAT,
     },
 
+    // Comprehensive ATS analysis stored as JSON
+    ats_analysis: {
+      type: DataTypes.JSON,
+      allowNull: true,
+      // {
+      //   overall_score: number (0-100),
+      //   section_scores: {
+      //     keywords: number,
+      //     skills: number,
+      //     experience: number,
+      //     education: number,
+      //     format: number
+      //   },
+      //   missing_keywords: string[],
+      //   suggestions: string[],
+      //   strengths: string[],
+      //   analyzed_at: Date
+      // }
+    },
+
     timestamp: {
       type: DataTypes.DATE,
       defaultValue: DataTypes.NOW,

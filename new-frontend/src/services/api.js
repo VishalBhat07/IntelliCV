@@ -186,6 +186,16 @@ export const resumeAPI = {
     const response = await api.delete(`/resume/${resumeId}`);
     return response.data;
   },
+
+  // Analyze resume for ATS compatibility
+  analyzeATS: async (resumeId, resumeData, jobDescription = null) => {
+    const response = await api.post("/resume/analyze-ats", {
+      resume_id: resumeId,
+      resume_data: resumeData,
+      job_description: jobDescription,
+    });
+    return response.data;
+  },
 };
 
 export default api;

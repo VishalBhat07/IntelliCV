@@ -24,6 +24,11 @@ const ResumeEditor = ({ resumeData, resumeId: existingResumeId }) => {
   // Resume title state (separate from personal info title)
   const [resumeTitle, setResumeTitle] = useState("Untitled Resume");
   const [isEditingTitle, setIsEditingTitle] = useState(false);
+  
+  // ATS Analysis state
+  const [atsAnalysis, setAtsAnalysis] = useState(null);
+  const [isAnalyzingATS, setIsAnalyzingATS] = useState(false);
+  const [showATSPanel, setShowATSPanel] = useState(false);
 
   // Sample resume data - will be replaced with actual generated data
   const [editorData, setEditorData] = useState({
@@ -360,6 +365,9 @@ ${editorData.skills?.technical?.length > 0 || editorData.skills?.tools?.length >
         // Mark that we have unsaved changes (regeneration is just a preview)
         setHasUnsavedChanges(true);
         
+        // Clear ATS analysis since content changed
+        setAtsAnalysis(null);
+        
         toast.success("Resume regenerated! Click Save to keep changes.", { id: "regenerate", duration: 5000 });
         setAiPrompt("");
         
@@ -384,6 +392,63 @@ ${editorData.skills?.technical?.length > 0 || editorData.skills?.tools?.length >
   const handleLogout = () => {
     logout();
     navigate("/login");
+  };
+
+  // Analyze resume for ATS compatibility
+  const handleAnalyzeATS = async (forceRefresh = false) => {
+    // If we already have analysis and not forcing refresh, just show the panel
+    if (atsAnalysis && !forceRefresh) {
+      setShowATSPanel(true);
+      return;
+    }
+    
+    try {
+      setIsAnalyzingATS(true);
+      setShowATSPanel(true);
+      toast.loading("Analyzing resume for ATS compatibility...", { id: "ats-analysis" });
+
+      // Prepare resume data for analysis
+      const resumeDataForAnalysis = {
+        personal_info: {
+          name: editorData.name,
+          title: editorData.title,
+          email: editorData.email,
+          phone: editorData.phone,
+          location: editorData.location,
+        },
+        summary: editorData.summary,
+        experience: editorData.experience,
+        education: editorData.education,
+        skills: editorData.skills,
+        projects: editorData.projects,
+        certifications: editorData.certifications,
+      };
+
+      const response = await resumeAPI.analyzeATS(
+        currentResumeId,
+        resumeDataForAnalysis,
+        null // No specific job description for now
+      );
+
+      if (response.analysis) {
+        setAtsAnalysis(response.analysis);
+        toast.success("ATS analysis complete!", { id: "ats-analysis" });
+      }
+    } catch (error) {
+      console.error("Failed to analyze ATS:", error);
+      toast.error(error.response?.data?.msg || "Failed to analyze resume", { id: "ats-analysis" });
+      setShowATSPanel(false);
+    } finally {
+      setIsAnalyzingATS(false);
+    }
+  };
+
+  // Get color based on ATS score
+  const getATSScoreColor = (score) => {
+    if (score >= 85) return { bg: "bg-emerald-500", text: "text-emerald-400", label: "Excellent" };
+    if (score >= 70) return { bg: "bg-blue-500", text: "text-blue-400", label: "Good" };
+    if (score >= 50) return { bg: "bg-amber-500", text: "text-amber-400", label: "Needs Work" };
+    return { bg: "bg-red-500", text: "text-red-400", label: "Poor" };
   };
 
   const handleZoomIn = () => {
@@ -497,6 +562,23 @@ ${editorData.skills?.technical?.length > 0 || editorData.skills?.tools?.length >
               <>
                 <span className="material-symbols-outlined text-lg">save</span>
                 <span className="hidden sm:inline">{hasUnsavedChanges ? 'Save Changes' : 'Save'}</span>
+              </>
+            )}
+          </button>
+          <button
+            onClick={handleAnalyzeATS}
+            disabled={isAnalyzingATS}
+            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-bold text-sm hover:from-purple-700 hover:to-indigo-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {isAnalyzingATS ? (
+              <>
+                <span className="material-symbols-outlined text-lg animate-spin">progress_activity</span>
+                <span className="hidden sm:inline">Analyzing...</span>
+              </>
+            ) : (
+              <>
+                <span className="material-symbols-outlined text-lg">analytics</span>
+                <span className="hidden sm:inline">ATS Score</span>
               </>
             )}
           </button>
@@ -1218,6 +1300,153 @@ ${editorData.skills?.technical?.length > 0 || editorData.skills?.tools?.length >
               </button>
             </div>
           </div>
+          
+          {/* ATS Analysis Panel */}
+          {showATSPanel && (
+            <div className="flex-none bg-gradient-to-b from-slate-800 to-slate-900 border-b border-white/10 p-4">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-white font-bold text-sm flex items-center gap-2">
+                  <span className="material-symbols-outlined text-purple-400">analytics</span>
+                  ATS Compatibility Score
+                  {atsAnalysis && (
+                    <span className="text-[10px] text-slate-500 font-normal">
+                      (Analyzed {new Date(atsAnalysis.analyzed_at).toLocaleTimeString()})
+                    </span>
+                  )}
+                </h3>
+                <div className="flex items-center gap-2">
+                  {atsAnalysis && !isAnalyzingATS && (
+                    <button 
+                      onClick={() => handleAnalyzeATS(true)}
+                      className="text-slate-400 hover:text-purple-400 transition-colors flex items-center gap-1 text-xs"
+                      title="Re-analyze resume"
+                    >
+                      <span className="material-symbols-outlined text-lg">refresh</span>
+                    </button>
+                  )}
+                  <button 
+                    onClick={() => setShowATSPanel(false)}
+                    className="text-slate-400 hover:text-white transition-colors"
+                  >
+                    <span className="material-symbols-outlined text-lg">close</span>
+                  </button>
+                </div>
+              </div>
+              
+              {isAnalyzingATS ? (
+                <div className="flex flex-col items-center py-8">
+                  <div className="w-16 h-16 rounded-full border-4 border-purple-500/30 border-t-purple-500 animate-spin mb-4"></div>
+                  <p className="text-slate-400 text-sm">Analyzing your resume...</p>
+                </div>
+              ) : atsAnalysis ? (
+                <div className="space-y-4">
+                  {/* Main Score */}
+                  <div className="flex items-center gap-4">
+                    <div className="relative w-24 h-24">
+                      <svg className="w-24 h-24 transform -rotate-90">
+                        <circle cx="48" cy="48" r="40" stroke="currentColor" strokeWidth="8" fill="none" className="text-slate-700" />
+                        <circle 
+                          cx="48" cy="48" r="40" 
+                          stroke="currentColor" 
+                          strokeWidth="8" 
+                          fill="none" 
+                          strokeDasharray={`${(atsAnalysis.overall_score / 100) * 251.2} 251.2`}
+                          className={getATSScoreColor(atsAnalysis.overall_score).text}
+                          strokeLinecap="round"
+                        />
+                      </svg>
+                      <div className="absolute inset-0 flex flex-col items-center justify-center">
+                        <span className="text-2xl font-bold text-white">{atsAnalysis.overall_score}</span>
+                        <span className="text-[10px] text-slate-400">/ 100</span>
+                      </div>
+                    </div>
+                    <div className="flex-1">
+                      <div className={`text-lg font-bold ${getATSScoreColor(atsAnalysis.overall_score).text}`}>
+                        {getATSScoreColor(atsAnalysis.overall_score).label}
+                      </div>
+                      <p className="text-slate-400 text-xs mt-1">
+                        {atsAnalysis.overall_score >= 85 
+                          ? "Your resume is highly optimized for ATS systems!"
+                          : atsAnalysis.overall_score >= 70
+                          ? "Good match! Minor improvements can boost your score."
+                          : atsAnalysis.overall_score >= 50
+                          ? "Consider the suggestions below to improve."
+                          : "Significant improvements needed for ATS compatibility."}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Section Scores */}
+                  <div className="grid grid-cols-5 gap-2">
+                    {Object.entries(atsAnalysis.section_scores || {}).map(([key, score]) => (
+                      <div key={key} className="bg-slate-800/50 rounded-lg p-2 text-center">
+                        <div className={`text-lg font-bold ${getATSScoreColor(score).text}`}>{score}%</div>
+                        <div className="text-[10px] text-slate-500 capitalize">{key}</div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Missing Keywords */}
+                  {atsAnalysis.missing_keywords?.length > 0 && (
+                    <div>
+                      <h4 className="text-xs font-bold text-slate-400 uppercase mb-2 flex items-center gap-1">
+                        <span className="material-symbols-outlined text-sm text-amber-400">warning</span>
+                        Missing Keywords
+                      </h4>
+                      <div className="flex flex-wrap gap-1.5">
+                        {atsAnalysis.missing_keywords.map((keyword, idx) => (
+                          <span key={idx} className="px-2 py-0.5 rounded bg-amber-500/20 text-amber-400 text-[10px] font-medium border border-amber-500/30">
+                            {keyword}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Strengths */}
+                  {atsAnalysis.strengths?.length > 0 && (
+                    <div>
+                      <h4 className="text-xs font-bold text-slate-400 uppercase mb-2 flex items-center gap-1">
+                        <span className="material-symbols-outlined text-sm text-emerald-400">check_circle</span>
+                        Strengths
+                      </h4>
+                      <ul className="space-y-1">
+                        {atsAnalysis.strengths.map((strength, idx) => (
+                          <li key={idx} className="text-xs text-emerald-400 flex items-start gap-1.5">
+                            <span className="material-symbols-outlined text-sm mt-0.5">done</span>
+                            {strength}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
+                  {/* Suggestions */}
+                  {atsAnalysis.suggestions?.length > 0 && (
+                    <div>
+                      <h4 className="text-xs font-bold text-slate-400 uppercase mb-2 flex items-center gap-1">
+                        <span className="material-symbols-outlined text-sm text-blue-400">lightbulb</span>
+                        Suggestions to Improve
+                      </h4>
+                      <ul className="space-y-1.5">
+                        {atsAnalysis.suggestions.map((suggestion, idx) => (
+                          <li key={idx} className="text-xs text-slate-300 flex items-start gap-1.5 bg-slate-800/50 rounded p-2">
+                            <span className="material-symbols-outlined text-sm text-blue-400 mt-0.5">arrow_right</span>
+                            {suggestion}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="text-center py-4 text-slate-400 text-sm">
+                  Click "ATS Score" to analyze your resume
+                </div>
+              )}
+            </div>
+          )}
+          
           <div className="flex-1 overflow-y-auto custom-scrollbar bg-white p-8 flex justify-center items-start">
             <div
               className="pdf-page w-[595px] min-h-[842px] p-[40px] text-[11px] leading-[1.4] relative origin-top transform transition-transform duration-200"
