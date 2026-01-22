@@ -110,3 +110,52 @@ details > summary::-webkit-details-marker {
 html {
   scroll-behavior: smooth;
 }
+
+/* Global smooth transitions for all interactive elements */
+button,
+a,
+[role="button"],
+.glass-card,
+.glass-panel,
+input,
+textarea,
+select,
+[class*="hover:"] {
+  transition: all 0.2s ease-in-out;
+}
+
+/* Smooth hover transitions for cards */
+.glass-card {
+  transition: transform 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+/* Smooth color transitions */
+* {
+  transition-property: color, background-color, border-color, opacity, box-shadow, transform;
+  transition-timing-function: ease-in-out;
+  transition-duration: 150ms;
+}
+
+/* Exception for elements that shouldn't transition */
+*::before,
+*::after,
+[class*="animate-"],
+.no-transition {
+  transition: none;
+}
+
+/* Ensure animations still work */
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}

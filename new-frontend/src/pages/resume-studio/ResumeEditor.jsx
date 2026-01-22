@@ -188,24 +188,59 @@ const ResumeEditor = ({ resumeData, resumeId: existingResumeId }) => {
       // Generate HTML from current editor data
       const htmlContent = `<!DOCTYPE html>
 <html><head><meta charset="UTF-8"><style>
-body{font-family:Arial,sans-serif;line-height:1.6;color:#333;max-width:800px;margin:0 auto;padding:20px}
-h1{color:#2563eb;margin-bottom:5px;font-size:28px}
-h2{color:#1e40af;border-bottom:2px solid #2563eb;padding-bottom:5px;margin-top:20px;font-size:18px}
-.contact{color:#666;margin-bottom:20px;font-size:14px}
-.item{margin-bottom:15px}
-.item-header{font-weight:bold;color:#1e40af;font-size:16px}
-.item-subheader{color:#666;font-size:14px;margin-top:2px}
+body{font-family:'Segoe UI',Arial,sans-serif;line-height:1.5;color:#333;max-width:800px;margin:0 auto;padding:40px 50px;font-size:11pt}
+h1{color:#1a1a1a;margin-bottom:5px;font-size:24pt;font-weight:700;text-transform:uppercase;letter-spacing:1px}
+h2{color:#2563eb;border-bottom:2px solid #2563eb;padding-bottom:5px;margin-top:25px;margin-bottom:12px;font-size:12pt;font-weight:600;text-transform:uppercase;letter-spacing:0.5px}
+.contact{color:#555;margin-bottom:15px;font-size:10pt}
+.contact-line{margin-bottom:3px}
+.title{font-size:12pt;color:#444;margin-bottom:8px;font-weight:500}
+.summary{margin-bottom:20px;text-align:justify}
+.item{margin-bottom:15px;page-break-inside:avoid}
+.item-header{font-weight:600;color:#1a1a1a;font-size:11pt}
+.item-subheader{color:#666;font-size:10pt;margin-top:2px;margin-bottom:5px}
+.item-description{font-size:10pt;line-height:1.6}
+.skills-section{margin-bottom:8px}
+.skills-label{font-weight:600;color:#1a1a1a}
+.project-item{margin-bottom:12px}
+.project-title{font-weight:600;color:#1a1a1a}
+.project-tech{color:#2563eb;font-size:10pt;font-style:italic}
+.cert-item{margin-bottom:8px}
+ul{margin:5px 0;padding-left:20px}
+li{margin-bottom:3px}
 </style></head><body>
 <h1>${editorData.name || "Your Name"}</h1>
+<div class="title">${editorData.title || ""}</div>
 <div class="contact">
-${editorData.title ? `<div><strong>${editorData.title}</strong></div>` : ""}
-${editorData.email ? `<div>Email: ${editorData.email}</div>` : ""}
-${editorData.phone ? `<div>Phone: ${editorData.phone}</div>` : ""}
+<div class="contact-line">${[editorData.email, editorData.phone, editorData.location].filter(Boolean).join(" • ")}</div>
 </div>
-${editorData.summary ? `<h2>Summary</h2><p>${editorData.summary}</p>` : ""}
-${editorData.experience?.length > 0 ? `<h2>Experience</h2>${editorData.experience.map((e) => `<div class="item"><div class="item-header">${e.position} at ${e.company}</div><div class="item-subheader">${e.startDate} - ${e.endDate}</div><div>${e.description}</div></div>`).join("")}` : ""}
-${editorData.education?.length > 0 ? `<h2>Education</h2>${editorData.education.map((e) => `<div class="item"><div class="item-header">${e.degree}</div><div class="item-subheader">${e.institution} | ${e.year}</div></div>`).join("")}` : ""}
-${editorData.skills?.technical?.length > 0 || editorData.skills?.tools?.length > 0 ? `<h2>Skills</h2>${editorData.skills.technical?.length > 0 ? `<div><strong>Technical:</strong> ${editorData.skills.technical.join(", ")}</div>` : ""}${editorData.skills.tools?.length > 0 ? `<div><strong>Tools:</strong> ${editorData.skills.tools.join(", ")}</div>` : ""}` : ""}
+${editorData.summary ? `<h2>Professional Summary</h2><div class="summary">${editorData.summary}</div>` : ""}
+${editorData.experience?.length > 0 ? `<h2>Experience</h2>${editorData.experience.map((e) => `
+<div class="item">
+<div class="item-header">${e.position || "Position"}</div>
+<div class="item-subheader">${e.company || "Company"}${e.location ? ` | ${e.location}` : ""} | ${e.startDate || ""} - ${e.endDate || "Present"}</div>
+<div class="item-description">${e.description || ""}</div>
+</div>`).join("")}` : ""}
+${editorData.education?.length > 0 ? `<h2>Education</h2>${editorData.education.map((e) => `
+<div class="item">
+<div class="item-header">${e.degree || "Degree"}</div>
+<div class="item-subheader">${e.institution || "Institution"} | ${e.year || ""}${e.gpa ? ` | GPA: ${e.gpa}` : ""}</div>
+${e.highlights ? `<div class="item-description">${e.highlights}</div>` : ""}
+</div>`).join("")}` : ""}
+${editorData.skills?.technical?.length > 0 || editorData.skills?.tools?.length > 0 || editorData.skills?.soft?.length > 0 ? `<h2>Skills</h2>
+${editorData.skills.technical?.length > 0 ? `<div class="skills-section"><span class="skills-label">Technical Skills:</span> ${editorData.skills.technical.join(", ")}</div>` : ""}
+${editorData.skills.tools?.length > 0 ? `<div class="skills-section"><span class="skills-label">Tools & Frameworks:</span> ${editorData.skills.tools.join(", ")}</div>` : ""}
+${editorData.skills.soft?.length > 0 ? `<div class="skills-section"><span class="skills-label">Soft Skills:</span> ${editorData.skills.soft.join(", ")}</div>` : ""}` : ""}
+${editorData.projects?.length > 0 ? `<h2>Projects</h2>${editorData.projects.map((p) => `
+<div class="project-item">
+<div class="project-title">${p.title || "Project"}</div>
+${p.technologies?.length > 0 ? `<div class="project-tech">${Array.isArray(p.technologies) ? p.technologies.join(", ") : p.technologies}</div>` : ""}
+<div class="item-description">${p.description || ""}</div>
+${p.link ? `<div style="font-size:9pt;color:#2563eb">Link: ${p.link}</div>` : ""}
+</div>`).join("")}` : ""}
+${editorData.certifications?.length > 0 ? `<h2>Certifications</h2>${editorData.certifications.map((c) => `
+<div class="cert-item">
+<span class="skills-label">${c.title || "Certification"}</span>${c.issuer ? ` - ${c.issuer}` : ""}${c.date ? ` (${c.date})` : ""}
+</div>`).join("")}` : ""}
 </body></html>`;
 
       const blob = await resumeAPI.exportPdf(htmlContent, `Resume.pdf`);

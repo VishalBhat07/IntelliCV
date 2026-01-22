@@ -12,6 +12,8 @@ const Dashboard = () => {
   const [loadingResumes, setLoadingResumes] = useState(true);
   const [showEditProfile, setShowEditProfile] = useState(false);
   const [openMenuId, setOpenMenuId] = useState(null); // Track which card's menu is open
+  const [showFilterMenu, setShowFilterMenu] = useState(false);
+  const [sortOption, setSortOption] = useState("newest"); // newest, oldest, ats_high, ats_low
   const [profileForm, setProfileForm] = useState({
     first_name: "",
     middle_name: "",
@@ -214,6 +216,32 @@ ${resume.projects?.length > 0 ? `<h2>Projects</h2>${resume.projects.map((p) => `
     return placeholderImages[index % placeholderImages.length];
   };
 
+  // Sort resumes based on selected filter option
+  const getSortedResumes = () => {
+    const sorted = [...resumes];
+    switch (sortOption) {
+      case "newest":
+        return sorted.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+      case "oldest":
+        return sorted.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+      case "ats_high":
+        return sorted.sort((a, b) => (b.match_score || 0) - (a.match_score || 0));
+      case "ats_low":
+        return sorted.sort((a, b) => (a.match_score || 0) - (b.match_score || 0));
+      default:
+        return sorted;
+    }
+  };
+
+  const sortedResumes = getSortedResumes();
+  
+  const filterOptions = [
+    { value: "newest", label: "Newest First", icon: "schedule" },
+    { value: "oldest", label: "Oldest First", icon: "history" },
+    { value: "ats_high", label: "ATS Score (High to Low)", icon: "trending_up" },
+    { value: "ats_low", label: "ATS Score (Low to High)", icon: "trending_down" },
+  ];
+
   return (
     <div className="bg-[#0F172A] text-white font-sans min-h-screen flex flex-col overflow-x-hidden selection:bg-blue-500 selection:text-white">
       {/* Background Gradient */}
@@ -224,7 +252,10 @@ ${resume.projects?.length > 0 ? `<h2>Projects</h2>${resume.projects.map((p) => `
 
       {/* Header */}
       <header className="sticky top-0 z-50 flex items-center justify-between whitespace-nowrap border-b border-white/5 bg-[#0F172A]/80 backdrop-blur-md px-6 py-3 w-full">
-        <div className="flex items-center gap-4 text-white">
+        <div 
+          onClick={() => navigate("/")}
+          className="flex items-center gap-4 text-white cursor-pointer hover:opacity-80 transition-opacity"
+        >
           <div className="w-8 h-8 text-blue-500">
             <svg
               className="w-full h-full"
@@ -252,15 +283,12 @@ ${resume.projects?.length > 0 ? `<h2>Projects</h2>${resume.projects.map((p) => `
           <a className="text-white text-sm font-medium hover:text-blue-500 transition-colors cursor-pointer">
             Dashboard
           </a>
-          <a className="text-slate-400 text-sm font-medium hover:text-white transition-colors cursor-pointer">
-            Templates
-          </a>
-          <a className="text-slate-400 text-sm font-medium hover:text-white transition-colors cursor-pointer">
-            Job Tracker
-          </a>
         </nav>
         <div className="flex gap-2">
-          <button className="flex w-9 h-9 cursor-pointer items-center justify-center overflow-hidden rounded-full hover:bg-white/10 bg-transparent text-slate-400 hover:text-white transition-colors">
+          <button 
+            onClick={() => toast("Coming soon! 🚀", { icon: "⚙️" })}
+            className="flex w-9 h-9 cursor-pointer items-center justify-center overflow-hidden rounded-full hover:bg-white/10 bg-transparent text-slate-400 hover:text-white transition-colors"
+          >
             <span className="material-symbols-outlined text-[20px]">
               settings
             </span>
@@ -436,13 +464,53 @@ ${resume.projects?.length > 0 ? `<h2>Projects</h2>${resume.projects.map((p) => `
                   </span>
                   My Resumes
                 </h3>
-                <div className="flex gap-2">
-                  <button className="flex items-center gap-1.5 text-xs font-semibold text-slate-400 bg-white/5 border border-white/5 px-3 py-1.5 rounded-lg hover:text-white hover:bg-white/10 transition-colors">
+                <div className="flex gap-2 relative">
+                  <button 
+                    onClick={() => setShowFilterMenu(!showFilterMenu)}
+                    className={`flex items-center gap-1.5 text-xs font-semibold bg-white/5 border border-white/5 px-3 py-1.5 rounded-lg hover:text-white hover:bg-white/10 transition-colors ${
+                      sortOption !== "newest" ? "text-blue-400 border-blue-500/30" : "text-slate-400"
+                    }`}
+                  >
                     <span className="material-symbols-outlined text-base">
                       filter_list
                     </span>
-                    Filter
+                    {filterOptions.find(f => f.value === sortOption)?.label || "Filter"}
                   </button>
+                  
+                  {/* Filter Dropdown */}
+                  {showFilterMenu && (
+                    <>
+                      <div 
+                        className="fixed inset-0 z-10" 
+                        onClick={() => setShowFilterMenu(false)}
+                      ></div>
+                      <div className="absolute right-0 top-full mt-2 w-56 bg-[#1E293B] border border-white/10 rounded-lg shadow-xl z-20 overflow-hidden">
+                        <div className="px-3 py-2 border-b border-white/5">
+                          <span className="text-[10px] uppercase tracking-wider text-slate-500 font-bold">Sort By</span>
+                        </div>
+                        {filterOptions.map((option) => (
+                          <button
+                            key={option.value}
+                            onClick={() => {
+                              setSortOption(option.value);
+                              setShowFilterMenu(false);
+                            }}
+                            className={`w-full flex items-center gap-2 px-3 py-2.5 text-sm transition-colors ${
+                              sortOption === option.value 
+                                ? "bg-blue-500/20 text-blue-400" 
+                                : "text-white hover:bg-white/5"
+                            }`}
+                          >
+                            <span className="material-symbols-outlined text-lg">{option.icon}</span>
+                            {option.label}
+                            {sortOption === option.value && (
+                              <span className="material-symbols-outlined text-lg ml-auto">check</span>
+                            )}
+                          </button>
+                        ))}
+                      </div>
+                    </>
+                  )}
                 </div>
               </div>
 
@@ -479,7 +547,7 @@ ${resume.projects?.length > 0 ? `<h2>Projects</h2>${resume.projects.map((p) => `
                     </p>
                   </div>
                 ) : (
-                  resumes.map((resume, index) => (
+                  sortedResumes.map((resume, index) => (
                     <div
                       key={resume.resume_id}
                       className="group relative flex flex-col glass-card !border-white/5 rounded-xl overflow-hidden transition-all duration-300 hover:-translate-y-1 hover:!border-blue-500/40"
