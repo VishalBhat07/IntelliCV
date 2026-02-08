@@ -1,15 +1,36 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useCallback } from "react";
 import toast from "react-hot-toast";
 import { uploadAPI } from "../../services/api";
+import DocumentLibrary from "../../components/DocumentLibrary";
 
 // File types matching the old frontend
 const FILE_TYPES = ["Certificates", "Project", "Education", "Miscellaneous"];
 
 const DocumentsStep = ({ data, onUpdate, onNext, onBack }) => {
-  const [documents, setDocuments] = useState(data || []);
+  const [documents, setDocuments] = useState(data?.documents || []);
+  const [selectedLibraryDocIds, setSelectedLibraryDocIds] = useState(
+    data?.selectedLibraryDocIds || []
+  );
   const [uploading, setUploading] = useState(null);
   const [docType, setDocType] = useState(FILE_TYPES[0]);
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
   const fileInputRef = useRef(null);
+
+  // Get user from localStorage
+  const user = JSON.parse(localStorage.getItem("user") || "{}");
+
+  // Handle selection changes from DocumentLibrary
+  const handleLibrarySelectionChange = useCallback(
+    (selectedIds) => {
+      setSelectedLibraryDocIds(selectedIds);
+      // Update parent with both newly uploaded docs and selected library doc IDs
+      onUpdate({
+        documents,
+        selectedLibraryDocIds: selectedIds,
+      });
+    },
+    [documents, onUpdate]
+  );
 
   const handleFileSelect = async (e) => {
     const file = e.target.files[0];
@@ -40,7 +61,6 @@ const DocumentsStep = ({ data, onUpdate, onNext, onBack }) => {
     });
 
     try {
-      const user = JSON.parse(localStorage.getItem("user"));
       if (!user?.user_id) {
         toast.error("User not found. Please login again.");
         setUploading(null);
@@ -70,9 +90,15 @@ const DocumentsStep = ({ data, onUpdate, onNext, onBack }) => {
 
       const updated = [...documents, ...uploadedFiles];
       setDocuments(updated);
-      onUpdate(updated);
+      onUpdate({
+        documents: updated,
+        selectedLibraryDocIds,
+      });
       setUploading(null);
       toast.success("Document uploaded successfully!");
+
+      // Trigger refresh of DocumentLibrary to show new doc
+      setRefreshTrigger((prev) => prev + 1);
     } catch (error) {
       console.error("Upload failed:", error);
       setUploading(null);
@@ -90,7 +116,10 @@ const DocumentsStep = ({ data, onUpdate, onNext, onBack }) => {
   const removeDocument = (id) => {
     const updated = documents.filter((doc) => doc.id !== id);
     setDocuments(updated);
-    onUpdate(updated);
+    onUpdate({
+      documents: updated,
+      selectedLibraryDocIds,
+    });
     toast.success("Document removed");
   };
 
@@ -314,16 +343,31 @@ const DocumentsStep = ({ data, onUpdate, onNext, onBack }) => {
           <span className="material-symbols-outlined text-lg">arrow_back</span>
           <span>Back</span>
         </button>
-        <button
-          onClick={onNext}
-          className="group flex items-center gap-2 px-8 py-3.5 rounded-xl bg-gradient-to-r from-blue-500 to-emerald-500 text-white font-bold text-sm hover:shadow-lg hover:shadow-blue-500/25 transition-all transform hover:-translate-y-0.5"
-        >
-          <span>Next: Job Description</span>
-          <span className="material-symbols-outlined text-lg group-hover:translate-x-1 transition-transform">
-            arrow_forward
-          </span>
-        </button>
+        <div className="flex items-center gap-3">
+          {/* Selection indicator */}
+          {(documents.length > 0 || selectedLibraryDocIds.length > 0) && (
+            <span className="text-xs text-slate-400 bg-slate-800 px-3 py-1.5 rounded-lg border border-slate-700">
+              {documents.length + selectedLibraryDocIds.length} docs selected
+            </span>
+          )}
+          <button
+            onClick={onNext}
+            className="group flex items-center gap-2 px-8 py-3.5 rounded-xl bg-gradient-to-r from-blue-500 to-emerald-500 text-white font-bold text-sm hover:shadow-lg hover:shadow-blue-500/25 transition-all transform hover:-translate-y-0.5"
+          >
+            <span>Next: Job Description</span>
+            <span className="material-symbols-outlined text-lg group-hover:translate-x-1 transition-transform">
+              arrow_forward
+            </span>
+          </button>
+        </div>
       </div>
+
+      {/* Document Library Sidebar */}
+      <DocumentLibrary
+        userId={user?.user_id}
+        onSelectionChange={handleLibrarySelectionChange}
+        refreshTrigger={refreshTrigger}
+      />
     </div>
   );
 };

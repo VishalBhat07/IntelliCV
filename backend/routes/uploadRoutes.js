@@ -6,6 +6,7 @@ const {
   streamFile,
   exportUserDocuments,
   listUserDocuments,
+  deleteDocument,
 } = require("../controllers/uploadController");
 const { processDocuments } = require("../controllers/llmController");
 
@@ -17,6 +18,9 @@ router.get("/:id", streamFile);
 
 // GET /api/upload/list/:userId -> list user documents
 router.get("/list/:userId", listUserDocuments);
+
+// DELETE /api/upload/:id/:userId -> delete a document
+router.delete("/:id/:userId", deleteDocument);
 
 // POST /api/upload/export -> export all documents for a user to disk
 router.post("/export", exportUserDocuments);

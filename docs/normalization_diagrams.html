@@ -1,0 +1,655 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IntelliCV Normalization Stages</title>
+    <style>
+        :root {
+            --primary: #2c3e50;
+            --accent: #3498db;
+            --bg: #f5f7fa;
+            --card-bg: #ffffff;
+            --arrow-color: #2d3436;
+        }
+
+        body {
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            background-color: var(--bg);
+            color: var(--primary);
+            padding: 20px;
+            margin: 0;
+        }
+
+        h1 { text-align: center; margin-bottom: 40px; }
+        
+        .stage-container {
+            background: var(--card-bg);
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+            margin-bottom: 60px;
+            padding: 30px;
+            position: relative;
+        }
+
+        .stage-header {
+            border-bottom: 3px solid #eee;
+            padding-bottom: 15px;
+            margin-bottom: 30px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            justify-content: space-between;
+        }
+
+        .stage-title {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .stage-badge {
+            background: var(--primary);
+            color: white;
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 0.9em;
+            font-weight: bold;
+        }
+
+        .tables-grid {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 40px;
+            justify-content: center;
+        }
+
+        .table-wrapper {
+            position: relative;
+            margin-bottom: 20px;
+            padding-bottom: 40px;
+            min-width: 320px;
+        }
+
+        .db-table {
+            border-collapse: collapse;
+            width: 100%;
+            background: white;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            border-radius: 8px;
+            overflow: hidden;
+            z-index: 2;
+            position: relative;
+        }
+
+        .db-table th {
+            padding: 12px;
+            text-align: left;
+            color: white;
+            font-weight: 600;
+            text-transform: uppercase;
+            font-size: 0.85em;
+            letter-spacing: 0.05em;
+        }
+
+        .th-1nf { background: #e17055; }
+        .th-2nf { background: #fdcb6e; color: #444 !important; }
+        .th-3nf { background: #00b894; }
+        .th-rel { background: rgb(255, 0, 221);}
+
+        .row-cells {
+            display: flex;
+            border-bottom: 1px solid #eee;
+        }
+
+        .cell {
+            padding: 10px 12px;
+            border-right: 1px solid #eee;
+            font-size: 13px;
+            white-space: nowrap;
+            display: flex;
+            align-items: center;
+            position: relative;
+        }
+        
+        .cell:last-child { border-right: none; }
+
+        .pk {
+            font-weight: bold;
+            color: #d63031;
+            text-decoration: underline;
+            margin-right: 5px;
+        }
+
+        .fk { color: #0984e3; font-style: italic; margin-right: 5px; }
+
+        .multivalued {
+            color: #e55039;
+            font-weight: bold;
+            background: #ffeaa7;
+            padding: 2px 6px;
+            border-radius: 4px;
+        }
+
+        .arrows-svg {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            pointer-events: none;
+            z-index: 10;
+            overflow: visible;
+        }
+
+        path {
+            stroke: var(--arrow-color);
+            stroke-width: 2;
+            fill: none;
+        }
+        
+        .dependency-arrow { marker-end: url(#arrowhead); }
+
+        .conclusion-box {
+            background: #f8f9fa;
+            border-left: 4px solid var(--primary);
+            padding: 15px;
+            margin-top: 30px;
+            border-radius: 0 4px 4px 0;
+        }
+        
+        .final-list ul {
+            columns: 2;
+            list-style-position: inside;
+        }
+
+    </style>
+</head>
+<body>
+
+    <h1>IntelliCV Relational Mapping</h1>
+
+    <svg style="position: absolute; width: 0; height: 0; overflow: hidden;" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+        <defs>
+            <marker id="arrowhead" markerWidth="8" markerHeight="6" refX="0" refY="3" orient="auto">
+                <polygon points="0 0, 8 3, 0 6" fill="#2d3436" />
+            </marker>
+        </defs>
+    </svg>
+
+    <div class="stage-container">
+        <div class="stage-header">
+            <div class="stage-title">
+                <h2>Relational Mapping</h2>
+            </div>
+        </div>
+        
+        <div class="tables-grid">
+            <!-- User -->
+            <div class="table-wrapper">
+                <table class="db-table">
+                    <thead><tr><th class="th-rel" colspan="100%">User</th></tr></thead>
+                    <tr><td>
+                        <div class="row-cells">
+                            <span class="cell pk">user_id</span>
+                            <span class="cell">name (f, m, l)</span>
+                            <span class="cell">email</span>
+                            <span class="cell">registration_date</span>
+                            <span class="cell">profile_summary</span>
+                            <span class="cell multivalued">phone</span>
+                        </div>
+                    </td></tr>
+                </table>
+            </div>
+
+            <div class="table-wrapper">
+            <table class="db-table">
+            <thead>
+                <tr>
+                    <th class="th-rel" colspan="100%">Document</th>
+                </tr>
+            </thead>
+            <tr>
+                <td>
+                    <div class="row-cells">
+                        <span class="cell pk">doc_id</span>
+                        <span class="cell fk">user_id</span>
+                        <span class="cell">file_name</span>
+                        <span class="cell">base_name</span>
+                        <span class="cell">ext</span>
+                        <span class="cell">text_extracted</span>
+                        <span class="cell">upload_date</span>
+                        <span class="cell multivalued">keywords</span>
+                    </div>
+                </td>
+            </tr>
+        </table>
+    </div>
+
+            
+            <!-- Project -->
+            <div class="table-wrapper">
+                <table class="db-table">
+                    <thead><tr><th class="th-rel" colspan="100%">Project</th></tr></thead>
+                    <tr><td>
+                        <div class="row-cells">
+                            <span class="cell pk">proj_id</span>
+                            <span class="cell fk">user_id</span>
+                            <span class="cell">title</span>
+                            <span class="cell">description</span>
+                            <span class="cell">start_date</span>
+                            <span class="cell">end_date</span>
+                            <span class="cell">project_length</span>
+                            <span class="cell multivalued">tech_stack</span>
+                        </div>
+                    </td></tr>
+                </table>
+            </div>
+                        <div class="table-wrapper">
+                <table class="db-table">
+                    <thead><tr><th class="th-rel" colspan="100%">Certificate</th></tr></thead>
+                    <tr><td>
+                        <div class="row-cells">
+                            <span class="cell pk">cert_id</span>
+                            <span class="cell fk">user_id</span>
+                            <span class="cell">title</span>
+                            <span class="cell">issuing_org</span>
+                            <span class="cell">issue_date</span>
+                            <span class="cell">validity_period</span>
+                        </div>
+                    </td></tr>
+                </table>
+            </div>
+                  <div class="table-wrapper">
+                <table class="db-table">
+                    <thead><tr><th class="th-rel" colspan="100%">Job_Description</th></tr></thead>
+                    <tr><td>
+                        <div class="row-cells">
+                            <span class="cell pk">job_id</span>
+                            <span class="cell fk">user_id</span>
+                            <span class="cell">title</span>
+                            <span class="cell">company_name</span>
+                            <span class="cell">location</span>
+                        </div>
+                    </td></tr>
+                </table>
+            </div>
+                            <div class="table-wrapper">
+                <table class="db-table">
+                    <thead><tr><th class="th-rel" colspan="100%">Generated_Resume</th></tr></thead>
+                    <tr><td>
+                        <div class="row-cells">
+                            <span class="cell pk">resume_id</span>
+                            <span class="cell fk">user_id</span>
+                            <span class="cell fk">job_id</span>
+                            <span class="cell">match_score</span>
+                            <span class="cell">generated_text</span>
+                            <span class="cell">timestamp</span>
+                        </div>
+                    </td></tr>
+                </table>
+            </div>
+        </div>
+    </div>
+
+
+
+    <!-- STEP 1: ER Analysis & 1NF Issues -->
+    <div class="stage-container">
+        <div class="stage-header">
+            <div class="stage-title">
+                <h2>1. First Normal Form (1NF)</h2>
+            </div>
+            <span class="stage-badge">1NF Violations (Multivalued Attributes)</span>
+        </div>
+        <p>The ER Diagram contains Composite Attributes (e.g., Name) and Multivalued Attributes (e.g., Phone, Tech Stack, Keywords, Skills). In a direct relational mapping, these would violate 1NF if kept in a single table.</p>
+        
+        <div class="tables-grid">
+            <!-- User 1NF -->
+            <div class="table-wrapper">
+                <table class="db-table">
+                    <thead><tr><th class="th-1nf" colspan="100%">User (1NF Violation)</th></tr></thead>
+                    <tr><td>
+                        <div class="row-cells">
+                            <span class="cell pk">user_id</span>
+                            <span class="cell">name (f, m, l)</span>
+                            <span class="cell">email</span>
+                            <span class="cell">registration_date</span>
+                            <span class="cell">profile_summary</span>
+                            <span class="cell multivalued">phone</span>
+                        </div>
+                    </td></tr>
+                </table>
+                <svg class="arrows-svg"></svg>
+            </div>
+
+            <div class="table-wrapper">
+        <table class="db-table">
+            <thead>
+                <tr>
+                    <th class="th-1nf" colspan="100%">Document</th>
+                </tr>
+            </thead>
+            <tr>
+                <td>
+                    <div class="row-cells">
+                        <span class="cell pk">doc_id</span>
+                        <span class="cell fk">user_id</span>
+                        <span class="cell">file_name</span>
+                        <span class="cell">base_name</span>
+                        <span class="cell">ext</span>
+                        <span class="cell">text_extracted</span>
+                        <span class="cell">upload_date</span>
+                        <span class="cell multivalued">keywords</span>
+                    </div>
+                </td>
+            </tr>
+        </table>
+        <svg class="arrows-svg"></svg>
+    </div>
+
+            
+            <!-- Project 1NF -->
+            <div class="table-wrapper">
+                <table class="db-table">
+                    <thead><tr><th class="th-1nf" colspan="100%">Project (1NF Violation)</th></tr></thead>
+                    <tr><td>
+                        <div class="row-cells">
+                            <span class="cell pk">proj_id</span>
+                            <span class="cell fk">user_id</span>
+                            <span class="cell">title</span>
+                            <span class="cell">description</span>
+                            <span class="cell">start_date</span>
+                            <span class="cell">end_date</span>
+                            <span class="cell">project_length</span>
+                            <span class="cell multivalued">tech_stack</span>
+                        </div>
+                    </td></tr>
+                </table>
+                <svg class="arrows-svg"></svg>
+            </div>
+        </div>
+    </div>
+
+<!--2NF  -->
+<div class="stage-container">
+         <div class="stage-header">
+            <div class="stage-title">
+                <h2>2. Second Normal Form (2NF)</h2>
+            </div>
+            <span class="stage-badge">Partial Dependencies Removed / Multivalued Fixed</span>
+        </div>
+        <p>Multivalued attributes are now in separate tables (`User_Phone`, `Project_Tech_Stack`). Primary keys are atomic. <br>
+        
+        <div class="tables-grid">
+            <!-- User (Fixed) -->
+            <div class="table-wrapper">
+                <table class="db-table">
+                    <thead><tr><th class="th-2nf" colspan="100%">User</th></tr></thead>
+                    <tr><td><div class="row-cells"><span class="cell pk">user_id</span><span class="cell">f_name</span><span class="cell">m_name</span><span class="cell">l_name</span><span class="cell">email</span>
+                            <span class="cell">registration_date</span>
+                            <span class="cell">profile_summary</span>
+                        </div></td></tr>
+                </table>
+                <svg class="arrows-svg"></svg>
+            </div>
+
+            <!-- User Phone (New)-->
+            <div class="table-wrapper">
+                <table class="db-table">
+                    <thead><tr><th class="th-2nf" colspan="100%">User_Phone</th></tr></thead>
+                    <tr><td><div class="row-cells"><span class="cell pk fk">user_id</span><span class="cell pk">phone_number</span></div></td></tr>
+                </table>
+                <svg class="arrows-svg"></svg>
+            </div>
+
+            <div class="table-wrapper">
+                <table class="db-table">
+                    <thead>
+                        <tr>
+                            <th class="th-2nf" colspan="100%">Document</th>
+                        </tr>
+                    </thead>
+            <tr>
+                <td>
+                    <div class="row-cells">
+                        <span class="cell pk">doc_id</span>
+                        <span class="cell fk">user_id</span>
+                        <span class="cell">file_name</span>
+                        <span class="cell">base_name</span>
+                        <span class="cell">ext</span>
+                        <span class="cell">text_extracted</span>
+                        <span class="cell">upload_date</span>
+                    </div>
+                </td>
+            </tr>
+        </table>
+        <svg class="arrows-svg"></svg>
+    </div>
+    
+    <div class="table-wrapper">
+        <table class="db-table">
+            <thead>
+                <tr>
+                    <th class="th-2nf" colspan="100%">Document_Keywords</th>
+                </tr>
+            </thead>
+            <tr>
+                <td>
+                    <div class="row-cells">
+                        <span class="cell fk pk">doc_id</span>
+                        <span class="cell pk">keywords</span>
+                    </div>
+                </td>
+            </tr>
+        </table>
+        <svg class="arrows-svg"></svg>
+    </div>
+    
+    <div class="table-wrapper">
+        <table class="db-table">
+                    <thead><tr><th class="th-2nf" colspan="100%">Project</th></tr></thead>
+                    <tr><td>
+                        <div class="row-cells">
+                            <span class="cell pk">proj_id</span>
+                            <span class="cell fk">user_id</span>
+                            <span class="cell">title</span>
+                            <span class="cell">description</span>
+                            <span class="cell">start_date</span>
+                            <span class="cell">end_date</span>
+                            <span class="cell">project_length</span>
+                        </div>
+                    </td></tr>
+                </table>
+                <svg class="arrows-svg"></svg>
+            </div>
+            
+            <div class="table-wrapper">
+                <table class="db-table">
+                    <thead><tr><th class="th-2nf" colspan="100%">Project_Tech_Stack</th></tr></thead>
+                    <tr><td><div class="row-cells"><span class="cell pk fk">proj_id</span><span class="cell pk">tech_stack</span></div></td></tr>
+                </table>
+                <svg class="arrows-svg"></svg>
+            </div>
+
+
+    <!-- STEP 2: Logical Relational Schema (3NF) -->
+    <div class="stage-container">
+        <div class="stage-header">
+            <div class="stage-title">
+                <h2>3.Third Normal Form (3NF)</h2>
+            </div>
+            <span class="stage-badge">Normalized Structure</span>
+        </div>
+        
+        <div class="tables-grid">
+             <!-- 1. User -->
+             <div class="table-wrapper">
+                <table class="db-table">
+                    <thead><tr><th class="th-3nf" colspan="100%">User</th></tr></thead>
+                    <tr><td><div class="row-cells"><span class="cell pk">user_id</span><span class="cell">f_name</span><span class="cell">m_name</span><span class="cell">l_name</span><span class="cell">email</span><span class="cell">profile_summary</span><span class="cell">registration_date</span></div></td></tr>
+                </table>
+                <svg class="arrows-svg"></svg>
+            </div>
+
+            <!-- 2. User_Phone (Multivalued extraction) -->
+             <div class="table-wrapper">
+                <table class="db-table">
+                    <thead><tr><th class="th-3nf" colspan="100%">User_Phone</th></tr></thead>
+                    <tr><td><div class="row-cells"><span class="cell pk fk">user_id</span><span class="cell pk">phone_number</span></div></td></tr>
+                </table>
+                <svg class="arrows-svg"></svg>
+            </div>
+
+            <!-- 3. Document -->
+             <div class="table-wrapper">
+                <table class="db-table">
+                    <thead><tr><th class="th-3nf" colspan="100%">Document</th></tr></thead>
+                    <tr><td><div class="row-cells"><span class="cell pk">doc_id</span><span class="cell fk">user_id</span><span class="cell">file_name</span><span class="cell">base_name</span><span class="cell">ext</span><span class="cell">text_extracted</span><span class="cell">upload_date</span></div></td></tr>
+                </table>
+                <svg class="arrows-svg"></svg>
+            </div>
+
+             <!-- 4. Document_Keywords (Multivalued extraction) -->
+             <div class="table-wrapper">
+                <table class="db-table">
+                    <thead><tr><th class="th-3nf" colspan="100%">Document_Keywords</th></tr></thead>
+                    <tr><td><div class="row-cells"><span class="cell pk fk">doc_id</span><span class="cell pk">keyword</span></div></td></tr>
+                </table>
+                <svg class="arrows-svg"></svg>
+            </div>
+
+            <!-- 5. Project -->
+            <div class="table-wrapper">
+                <table class="db-table">
+                    <thead><tr><th class="th-3nf" colspan="100%">Project</th></tr></thead>
+                    <tr><td>
+                        <div class="row-cells">
+                            <span class="cell pk">proj_id</span>
+                            <span class="cell fk">user_id</span>
+                            <span class="cell">title</span>
+                            <span class="cell">description</span>
+                            <span class="cell">start_date</span>
+                            <span class="cell">end_date</span>
+                            <span class="cell">project_length</span>
+                        </div>
+                    </td></tr>
+                </table>
+                <svg class="arrows-svg"></svg>
+            </div>
+
+            <!-- 6. Project_Tech_Stack (Multivalued extraction) -->
+            <div class="table-wrapper">
+                <table class="db-table">
+                    <thead><tr><th class="th-3nf" colspan="100%">Project_Tech_Stack</th></tr></thead>
+                    <tr><td><div class="row-cells"><span class="cell pk fk">proj_id</span><span class="cell pk fk">tech_stack</span></div></td></tr>
+                </table>
+                <svg class="arrows-svg"></svg>
+            </div>
+
+            <!-- 7. Certificate -->
+            <div class="table-wrapper">
+                <table class="db-table">
+                    <thead><tr><th class="th-3nf" colspan="100%">Certificate</th></tr></thead>
+                    <tr><td>
+                        <div class="row-cells">
+                            <span class="cell pk">cert_id</span>
+                            <span class="cell fk">user_id</span>
+                            <span class="cell">title</span>
+                            <span class="cell">issuing_org</span>
+                            <span class="cell">issue_date</span>
+                            <span class="cell">validity_period</span>
+                        </div>
+                    </td></tr>
+                </table>
+                <svg class="arrows-svg"></svg>
+            </div>
+
+            <!-- 8. Job Description -->
+            <div class="table-wrapper">
+                <table class="db-table">
+                    <thead><tr><th class="th-3nf" colspan="100%">Job_Description</th></tr></thead>
+                    <tr><td>
+                        <div class="row-cells">
+                            <span class="cell pk">job_id</span>
+                            <span class="cell fk">user_id</span>
+                            <span class="cell">title</span>
+                            <span class="cell">company_name</span>
+                            <span class="cell">location</span>
+                        </div>
+                    </td></tr>
+                </table>
+                <svg class="arrows-svg"></svg>
+            </div>
+
+             <!-- 9. Job_Required_Skills (Multivalued extraction) -->
+             <div class="table-wrapper">
+                <table class="db-table">
+                    <thead><tr><th class="th-3nf" colspan="100%">Job_Required_Skills</th></tr></thead>
+                    <tr><td><div class="row-cells"><span class="cell pk fk">job_id</span><span class="cell pk">skill</span></div></td></tr>
+                </table>
+                <svg class="arrows-svg"></svg>
+            </div>
+
+            <!-- 10. Generated Resume -->
+            <div class="table-wrapper">
+                <table class="db-table">
+                    <thead><tr><th class="th-3nf" colspan="100%">Generated_Resume</th></tr></thead>
+                    <tr><td>
+                        <div class="row-cells">
+                            <span class="cell pk">resume_id</span>
+                            <span class="cell fk">user_id</span>
+                            <span class="cell fk">job_id</span>
+                            <span class="cell">match_score</span>
+                            <span class="cell">generated_text</span>
+                            <span class="cell">timestamp</span>
+                        </div>
+                    </td></tr>
+                </table>
+                <svg class="arrows-svg"></svg>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- Drawing Script -->
+    <script>
+        function drawArrows() {
+            const wrappers = document.querySelectorAll('.table-wrapper');
+            wrappers.forEach(wrapper => {
+                const cells = wrapper.querySelectorAll('.cell');
+                const svg = wrapper.querySelector('.arrows-svg');
+                if (!cells.length || !svg) return;
+                
+                svg.innerHTML = '';
+                
+                // Draw Functional Dependencies (PK -> Attributes)
+                const pkCell = cells[0];
+                const pkCenterX = pkCell.offsetLeft + (pkCell.offsetWidth / 2);
+                const pkBottomY = pkCell.offsetTop + pkCell.offsetHeight;
+                const busOffset = 25; 
+                const busY = pkBottomY + busOffset;
+
+                // PK Line Down
+                let busPath = document.createElementNS("http://www.w3.org/2000/svg", "path");
+                busPath.setAttribute("d", `M ${pkCenterX} ${pkBottomY} L ${pkCenterX} ${busY}`);
+                svg.appendChild(busPath);
+
+                // Draw arrow to other cells
+                for (let i = 1; i < cells.length; i++) {
+                    const targetCell = cells[i];
+                    const targetCenterX = targetCell.offsetLeft + (targetCell.offsetWidth / 2);
+                    const targetBottomY = targetCell.offsetTop + targetCell.offsetHeight;
+                    
+                    const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+                    path.classList.add("dependency-arrow");
+                    const d = `M ${pkCenterX} ${busY} L ${targetCenterX} ${busY} L ${targetCenterX} ${targetBottomY + 5}`;
+                    path.setAttribute("d", d);
+                    svg.appendChild(path);
+                }
+            });
+        }
+
+        window.onload = drawArrows;
+        window.onresize = drawArrows;
+    </script>
+</body>
+</html>

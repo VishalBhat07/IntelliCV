@@ -244,9 +244,59 @@ exports.listUserDocuments = async (req, res) => {
         fileType: d.file_type,
         fileSize: d.file_size,
         uploadDate: d.upload_date,
+        mongoFileId: d.mongo_file_id,
       })),
     });
   } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+// DELETE /api/upload/:id/:userId -> delete a document
+exports.deleteDocument = async (req, res) => {
+  try {
+    const { id, userId } = req.params;
+    if (!id || !userId) {
+      return res.status(400).json({ msg: "Document id and userId are required" });
+    }
+
+    // Find the document and verify ownership
+    const doc = await Document.findOne({
+      where: { id: id, user_id: userId },
+    });
+
+    if (!doc) {
+      return res.status(404).json({ msg: "Document not found or access denied" });
+    }
+
+    // Delete from MongoDB GridFS
+    let bucket;
+    try {
+      bucket = getBucket();
+    } catch (err) {
+      await connect();
+      bucket = getBucket();
+    }
+
+    try {
+      const objectId = new ObjectId(doc.mongo_file_id);
+      await bucket.delete(objectId);
+      console.log(`🗑️  Deleted file from GridFS: ${doc.mongo_file_id}`);
+    } catch (gridErr) {
+      console.log(`⚠️  Could not delete from GridFS (may already be deleted): ${gridErr.message}`);
+    }
+
+    // Delete from MySQL
+    await doc.destroy();
+    console.log(`🗑️  Deleted document record: ${doc.file_name} (ID: ${id})`);
+
+    res.json({
+      msg: "Document deleted successfully",
+      id: id,
+      fileName: doc.file_name,
+    });
+  } catch (err) {
+    console.error("Error deleting document:", err);
     res.status(500).json({ error: err.message });
   }
 };

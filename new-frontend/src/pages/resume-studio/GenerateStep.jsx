@@ -31,6 +31,10 @@ const GenerateStep = ({ resumeData, onBack, onComplete }) => {
         }
         const userId = user.user_id;
 
+        // Extract selected document IDs from resumeData
+        const selectedDocIds = resumeData.documents?.selectedLibraryDocIds || [];
+        console.log("📋 Selected library doc IDs:", selectedDocIds);
+
         // Step 1: Analyze education (already saved in EducationStep)
         setCurrentStep(0);
         setProgress(10);
@@ -54,11 +58,12 @@ const GenerateStep = ({ resumeData, onBack, onComplete }) => {
         setProgress(70);
         await new Promise((r) => setTimeout(r, 500));
 
-        // Step 5: Generate resume via LLM processing
+        // Step 5: Generate resume via LLM processing with selected docs
         setCurrentStep(4);
         setProgress(85);
         console.log("🚀 Calling resumeAPI.process for user:", userId);
-        const result = await resumeAPI.process(userId);
+        console.log("📌 With selected doc IDs:", selectedDocIds.length > 0 ? selectedDocIds : "all documents");
+        const result = await resumeAPI.process(userId, selectedDocIds.length > 0 ? selectedDocIds : null);
         
         console.log("✅ API Response received:", result);
         console.log("📄 Resume data:", result.resume);

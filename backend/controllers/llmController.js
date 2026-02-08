@@ -420,7 +420,8 @@ async function executeGeneratedQueries(sqlStatements) {
 }
 
 // Helper: Export documents from GridFS to filesystem
-async function exportDocumentsForUser(userId) {
+// If selectedDocIds is provided, only export those documents
+async function exportDocumentsForUser(userId, selectedDocIds = null) {
   let bucket;
   try {
     bucket = getBucket();
@@ -429,7 +430,15 @@ async function exportDocumentsForUser(userId) {
     bucket = getBucket();
   }
 
-  const docs = await Document.findAll({ where: { user_id: userId } });
+  let whereClause = { user_id: userId };
+  
+  // If specific document IDs are provided, filter by them
+  if (selectedDocIds && Array.isArray(selectedDocIds) && selectedDocIds.length > 0) {
+    whereClause.id = selectedDocIds;
+    console.log(`🎯 Filtering to ${selectedDocIds.length} selected documents`);
+  }
+
+  const docs = await Document.findAll({ where: whereClause });
   if (!docs || docs.length === 0) {
     console.log(`⚠️  No documents found in database for user ${userId}`);
     return 0;
@@ -718,7 +727,7 @@ function calculateMatchScore(data) {
 
 // Main controller - Process documents and populate database
 exports.processDocuments = async (req, res) => {
-  const { user_id } = req.body;
+  const { user_id, selected_doc_ids } = req.body;
 
   if (!user_id) {
     return res.status(400).json({ msg: "user_id is required" });
@@ -740,10 +749,15 @@ exports.processDocuments = async (req, res) => {
     setProcessingLock(user_id);
     console.log(`🔒 Processing lock acquired for user ${user_id}`);
     console.log("\n=== STARTING COMPLETE DOCUMENT PROCESSING FLOW ===\n");
+    
+    // Log if processing specific documents
+    if (selected_doc_ids && selected_doc_ids.length > 0) {
+      console.log(`📌 Processing ${selected_doc_ids.length} selected documents only`);
+    }
 
-    // Step 1: Export documents from GridFS to filesystem
+    // Step 1: Export documents from GridFS to filesystem (filtered by selected_doc_ids if provided)
     console.log("📤 Step 1: Exporting documents from database...");
-    const exportedCount = await exportDocumentsForUser(user_id);
+    const exportedCount = await exportDocumentsForUser(user_id, selected_doc_ids);
     if (exportedCount === 0) {
       releaseProcessingLock(user_id);
       return res.status(404).json({ msg: "No documents found for user" });

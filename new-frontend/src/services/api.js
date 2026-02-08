@@ -108,6 +108,17 @@ export const uploadAPI = {
     const response = await api.get(`/upload/list/${userId}`);
     return response.data;
   },
+
+  deleteDocument: async (documentId, userId) => {
+    const response = await api.delete(`/upload/${documentId}/${userId}`);
+    return response.data;
+  },
+
+  // Get stream URL for document preview
+  getDocumentUrl: (mongoFileId) => {
+    const baseUrl = import.meta.env.VITE_API_URL || "http://localhost:8080/api";
+    return `${baseUrl}/upload/${mongoFileId}`;
+  },
 };
 
 // Job Description API calls
@@ -129,10 +140,12 @@ export const jobDescriptionAPI = {
 // Resume API calls
 export const resumeAPI = {
   // Process documents and generate resume via LLM
-  process: async (userId) => {
-    const response = await api.post("/upload/process", {
-      user_id: userId,
-    });
+  process: async (userId, selectedDocIds = null) => {
+    const payload = { user_id: userId };
+    if (selectedDocIds && selectedDocIds.length > 0) {
+      payload.selected_doc_ids = selectedDocIds;
+    }
+    const response = await api.post("/upload/process", payload);
     return response.data;
   },
 

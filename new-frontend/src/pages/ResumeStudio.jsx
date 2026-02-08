@@ -20,7 +20,7 @@ const ResumeStudio = () => {
   const [loadingExisting, setLoadingExisting] = useState(false);
   const [resumeData, setResumeData] = useState({
     education: [],
-    documents: [],
+    documents: { documents: [], selectedLibraryDocIds: [] },
     jobDescription: { text: "", file: null },
   });
   const [generatedResume, setGeneratedResume] = useState(null);
