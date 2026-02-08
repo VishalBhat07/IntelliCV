@@ -153,8 +153,14 @@ async function extractPdfText(filePath) {
 }
 
 // Extract text from uploaded documents
-async function extractTextFromDocuments(userId) {
+async function extractTextFromDocuments(userId, allowedFilenames = null) {
   const uploadsDir = path.join(__dirname, "../../Processing/uploads");
+  
+  // If allowedFilenames is provided, only extract those files
+  const shouldExtract = (filename) => {
+    if (!allowedFilenames || allowedFilenames.length === 0) return true;
+    return allowedFilenames.includes(filename);
+  };
 
   const result = {
     certificates: [],
@@ -175,7 +181,8 @@ async function extractTextFromDocuments(userId) {
       for (const file of certFiles) {
         if (
           file.startsWith(`${userId}_`) &&
-          file.toLowerCase().endsWith(".pdf")
+          file.toLowerCase().endsWith(".pdf") &&
+          shouldExtract(file)
         ) {
           const filePath = path.join(certDir, file);
           console.log(`📄 Extracting certificate: ${file}`);
@@ -196,7 +203,8 @@ async function extractTextFromDocuments(userId) {
       for (const file of projFiles) {
         if (
           file.startsWith(`${userId}_`) &&
-          file.toLowerCase().endsWith(".pdf")
+          file.toLowerCase().endsWith(".pdf") &&
+          shouldExtract(file)
         ) {
           const filePath = path.join(projDir, file);
           console.log(`📄 Extracting project: ${file}`);
@@ -217,7 +225,8 @@ async function extractTextFromDocuments(userId) {
       for (const file of otherFiles) {
         if (
           file.startsWith(`${userId}_`) &&
-          file.toLowerCase().endsWith(".pdf")
+          file.toLowerCase().endsWith(".pdf") &&
+          shouldExtract(file)
         ) {
           const filePath = path.join(otherDir, file);
           console.log(`📄 Extracting other document: ${file}`);
@@ -450,6 +459,7 @@ async function exportDocumentsForUser(userId, selectedDocIds = null) {
   await fs.mkdir(baseDir, { recursive: true });
 
   let exportedCount = 0;
+  const exportedFilenames = [];
 
   for (const doc of docs) {
     const bucketType = doc.file_type || "Miscellaneous";
@@ -482,6 +492,7 @@ async function exportDocumentsForUser(userId, selectedDocIds = null) {
       });
 
       exportedCount++;
+      exportedFilenames.push(filename);
       console.log(`✅ Exported: ${filename}`);
     } catch (err) {
       console.log(`❌ Failed to export ${filename}:`, err.message);
@@ -489,7 +500,7 @@ async function exportDocumentsForUser(userId, selectedDocIds = null) {
   }
 
   console.log(`📤 Exported ${exportedCount}/${docs.length} documents`);
-  return exportedCount;
+  return { count: exportedCount, filenames: exportedFilenames };
 }
 
 // Helper: Get user data from database
@@ -757,15 +768,15 @@ exports.processDocuments = async (req, res) => {
 
     // Step 1: Export documents from GridFS to filesystem (filtered by selected_doc_ids if provided)
     console.log("📤 Step 1: Exporting documents from database...");
-    const exportedCount = await exportDocumentsForUser(user_id, selected_doc_ids);
-    if (exportedCount === 0) {
+    const exportResult = await exportDocumentsForUser(user_id, selected_doc_ids);
+    if (exportResult.count === 0) {
       releaseProcessingLock(user_id);
       return res.status(404).json({ msg: "No documents found for user" });
     }
 
-    // Step 2: Extract text from all uploaded documents
+    // Step 2: Extract text only from exported documents (not all files on disk)
     console.log("\n📄 Step 2: Extracting text from documents...");
-    const extractedData = await extractTextFromDocuments(user_id);
+    const extractedData = await extractTextFromDocuments(user_id, exportResult.filenames);
 
     // Save extracted text to JSON file for reference
     const jsonPath = path.join(
@@ -820,7 +831,7 @@ exports.processDocuments = async (req, res) => {
     res.json({
       msg: "Complete processing finished successfully",
       steps: {
-        exported: exportedCount,
+        exported: exportResult.count,
         extracted: {
           certificates: extractedData.certificates.length,
           projects: extractedData.projects.length,

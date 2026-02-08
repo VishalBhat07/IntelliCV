@@ -1,13 +1,28 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import toast from "react-hot-toast";
 import { uploadAPI } from "../services/api";
 
-const DocumentLibrary = ({ userId, onSelectionChange, refreshTrigger }) => {
+const DocumentLibrary = ({ userId, onSelectionChange, refreshTrigger, initialSelectedIds = [] }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [documents, setDocuments] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [selectedIds, setSelectedIds] = useState(new Set());
+  const [selectedIds, setSelectedIds] = useState(new Set(initialSelectedIds));
   const [deleteConfirm, setDeleteConfirm] = useState(null);
+  const isExternalSync = useRef(false);
+
+  // Sync with external selection changes (e.g., when new docs are uploaded)
+  useEffect(() => {
+    if (initialSelectedIds.length > 0) {
+      isExternalSync.current = true;
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        initialSelectedIds.forEach((id) => next.add(id));
+        return next;
+      });
+      // Reset flag after state update
+      setTimeout(() => { isExternalSync.current = false; }, 0);
+    }
+  }, [initialSelectedIds]);
 
   // Fetch documents on mount and when refreshTrigger changes
   useEffect(() => {
@@ -16,9 +31,11 @@ const DocumentLibrary = ({ userId, onSelectionChange, refreshTrigger }) => {
     }
   }, [userId, refreshTrigger]);
 
-  // Notify parent of selection changes
+  // Notify parent of selection changes ONLY from user actions, not external sync
   useEffect(() => {
-    onSelectionChange?.(Array.from(selectedIds));
+    if (!isExternalSync.current) {
+      onSelectionChange?.(Array.from(selectedIds));
+    }
   }, [selectedIds, onSelectionChange]);
 
   const fetchDocuments = async () => {
@@ -30,6 +47,18 @@ const DocumentLibrary = ({ userId, onSelectionChange, refreshTrigger }) => {
         (doc) => doc.fileType !== "JobDescription" && doc.fileType !== "Job Description"
       );
       setDocuments(docs);
+      
+      // Clean up stale selected IDs that no longer exist in the database
+      const validDocIds = new Set(docs.map((d) => d.id));
+      setSelectedIds((prev) => {
+        const cleaned = new Set([...prev].filter((id) => validDocIds.has(id)));
+        // If we removed stale IDs, notify parent
+        if (cleaned.size !== prev.size) {
+          console.log("🧹 Cleaned up stale doc IDs:", prev.size - cleaned.size);
+          onSelectionChange?.(Array.from(cleaned));
+        }
+        return cleaned;
+      });
     } catch (err) {
       console.error("Failed to fetch documents:", err);
       toast.error("Failed to load document library");

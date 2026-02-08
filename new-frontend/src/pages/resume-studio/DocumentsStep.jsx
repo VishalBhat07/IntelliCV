@@ -81,7 +81,7 @@ const DocumentsStep = ({ data, onUpdate, onNext, onBack }) => {
 
       // Add uploaded files to documents list
       const uploadedFiles = (response.files || []).map((f) => ({
-        id: f._id || Date.now(),
+        id: f.id || Date.now(),
         name: f.file_name || file.name,
         type: f.file_type || docType,
         size: formatFileSize(file.size),
@@ -90,12 +90,24 @@ const DocumentsStep = ({ data, onUpdate, onNext, onBack }) => {
 
       const updated = [...documents, ...uploadedFiles];
       setDocuments(updated);
+
+      // Auto-select newly uploaded documents for resume generation
+      const newDocIds = (response.files || [])
+        .filter((f) => f.id)
+        .map((f) => f.id);
+      console.log("📤 Upload response files:", response.files);
+      console.log("🆕 New doc IDs from upload:", newDocIds);
+      console.log("📋 Current selectedLibraryDocIds:", selectedLibraryDocIds);
+      const updatedSelectedIds = [...selectedLibraryDocIds, ...newDocIds];
+      console.log("✅ Updated selectedIds after merge:", updatedSelectedIds);
+      setSelectedLibraryDocIds(updatedSelectedIds);
+
       onUpdate({
         documents: updated,
-        selectedLibraryDocIds,
+        selectedLibraryDocIds: updatedSelectedIds,
       });
       setUploading(null);
-      toast.success("Document uploaded successfully!");
+      toast.success("Document uploaded and selected for resume!");
 
       // Trigger refresh of DocumentLibrary to show new doc
       setRefreshTrigger((prev) => prev + 1);
@@ -345,9 +357,9 @@ const DocumentsStep = ({ data, onUpdate, onNext, onBack }) => {
         </button>
         <div className="flex items-center gap-3">
           {/* Selection indicator */}
-          {(documents.length > 0 || selectedLibraryDocIds.length > 0) && (
+          {selectedLibraryDocIds.length > 0 && (
             <span className="text-xs text-slate-400 bg-slate-800 px-3 py-1.5 rounded-lg border border-slate-700">
-              {documents.length + selectedLibraryDocIds.length} docs selected
+              {selectedLibraryDocIds.length} docs selected
             </span>
           )}
           <button
@@ -367,6 +379,7 @@ const DocumentsStep = ({ data, onUpdate, onNext, onBack }) => {
         userId={user?.user_id}
         onSelectionChange={handleLibrarySelectionChange}
         refreshTrigger={refreshTrigger}
+        initialSelectedIds={selectedLibraryDocIds}
       />
     </div>
   );

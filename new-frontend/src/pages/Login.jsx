@@ -96,10 +96,10 @@ const Login = () => {
 
             {/* Header */}
             <div className="relative z-10 flex flex-col items-center text-center mb-8">
-              <div className="inline-flex items-center gap-2 rounded-full border border-blue-500/30 bg-blue-500/10 px-3 py-1 text-xs font-semibold text-blue-200 backdrop-blur-sm mb-6 shadow-[0_0_20px_rgba(59,130,246,0.3)]">
+              {/* <div className="inline-flex items-center gap-2 rounded-full border border-blue-500/30 bg-blue-500/10 px-3 py-1 text-xs font-semibold text-blue-200 backdrop-blur-sm mb-6 shadow-[0_0_20px_rgba(59,130,246,0.3)]">
                 <span className="flex size-2 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.6)]"></span>
                 Powered by Google Gemini
-              </div>
+              </div> */}
               <h1 className="text-3xl font-bold text-white mb-2">
                 Welcome Back
               </h1>

@@ -29,6 +29,9 @@ const ResumeEditor = ({ resumeData, resumeId: existingResumeId }) => {
   const [atsAnalysis, setAtsAnalysis] = useState(null);
   const [isAnalyzingATS, setIsAnalyzingATS] = useState(false);
   const [showATSPanel, setShowATSPanel] = useState(false);
+  
+  // Template selection state
+  const [selectedTemplate, setSelectedTemplate] = useState("classic"); // "classic" or "modern"
 
   // Sample resume data - will be replaced with actual generated data
   const [editorData, setEditorData] = useState({
@@ -185,8 +188,32 @@ const ResumeEditor = ({ resumeData, resumeId: existingResumeId }) => {
     try {
       toast.loading("Generating PDF...", { id: "pdf-download" });
 
-      // Generate HTML from current editor data
-      const htmlContent = `<!DOCTYPE html>
+      // Generate HTML based on selected template
+      const htmlContent = selectedTemplate === "modern" 
+        ? generateModernTemplate()
+        : generateClassicTemplate();
+
+      const blob = await resumeAPI.exportPdf(htmlContent, `Resume.pdf`);
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${editorData.name || "Resume"}_${new Date().toISOString().split("T")[0]}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+      toast.success("PDF downloaded!", { id: "pdf-download" });
+    } catch (err) {
+      console.error("PDF download failed:", err);
+      toast.error(
+        "Failed to download PDF: " + (err.message || "Unknown error"),
+        { id: "pdf-download" },
+      );
+    }
+  };
+
+  // Classic Template - Blue accent, traditional layout
+  const generateClassicTemplate = () => `<!DOCTYPE html>
 <html><head><meta charset="UTF-8"><style>
 body{font-family:'Segoe UI',Arial,sans-serif;line-height:1.5;color:#333;max-width:800px;margin:0 auto;padding:40px 50px;font-size:11pt}
 h1{color:#1a1a1a;margin-bottom:5px;font-size:24pt;font-weight:700;text-transform:uppercase;letter-spacing:1px}
@@ -243,24 +270,78 @@ ${editorData.certifications?.length > 0 ? `<h2>Certifications</h2>${editorData.c
 </div>`).join("")}` : ""}
 </body></html>`;
 
-      const blob = await resumeAPI.exportPdf(htmlContent, `Resume.pdf`);
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `${editorData.name || "Resume"}_${new Date().toISOString().split("T")[0]}.pdf`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      window.URL.revokeObjectURL(url);
-      toast.success("PDF downloaded!", { id: "pdf-download" });
-    } catch (err) {
-      console.error("PDF download failed:", err);
-      toast.error(
-        "Failed to download PDF: " + (err.message || "Unknown error"),
-        { id: "pdf-download" },
-      );
-    }
-  };
+  // Modern Template - Emerald accent, sidebar layout
+  const generateModernTemplate = () => `<!DOCTYPE html>
+<html><head><meta charset="UTF-8"><style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',Arial,sans-serif;line-height:1.5;color:#333;max-width:800px;margin:0 auto;font-size:10pt}
+.header{background:linear-gradient(135deg,#059669 0%,#10b981 100%);color:white;padding:35px 40px;text-align:center}
+.header h1{font-size:26pt;font-weight:700;letter-spacing:2px;margin-bottom:5px;text-transform:uppercase}
+.header .title{font-size:13pt;opacity:0.95;font-weight:400;margin-bottom:12px}
+.header .contact{font-size:9pt;opacity:0.9}
+.header .contact span{margin:0 8px}
+.content{display:flex;padding:25px 35px}
+.main{flex:1;padding-right:25px}
+.sidebar{width:200px;padding-left:25px;border-left:2px solid #e5e7eb}
+h2{color:#059669;font-size:11pt;font-weight:700;text-transform:uppercase;letter-spacing:1px;padding-bottom:8px;margin-bottom:12px;border-bottom:2px solid #059669}
+.sidebar h2{font-size:10pt;margin-bottom:10px}
+.item{margin-bottom:15px;page-break-inside:avoid}
+.item-header{font-weight:700;color:#1a1a1a;font-size:10pt}
+.item-subheader{color:#059669;font-size:9pt;font-weight:500;margin:2px 0 5px}
+.item-meta{color:#666;font-size:8pt}
+.item-description{font-size:9pt;line-height:1.6;color:#444}
+.skill-category{margin-bottom:12px}
+.skill-label{font-weight:600;color:#1a1a1a;font-size:9pt;margin-bottom:4px}
+.skill-tags{display:flex;flex-wrap:wrap;gap:4px}
+.skill-tag{background:#ecfdf5;color:#059669;padding:2px 8px;border-radius:10px;font-size:8pt;font-weight:500}
+.project-item{margin-bottom:12px}
+.project-title{font-weight:600;color:#1a1a1a;font-size:9pt}
+.project-tech{color:#059669;font-size:8pt;font-style:italic}
+.cert-item{margin-bottom:8px;font-size:9pt}
+.cert-item strong{color:#1a1a1a}
+</style></head><body>
+<div class="header">
+<h1>${editorData.name || "Your Name"}</h1>
+<div class="title">${editorData.title || ""}</div>
+<div class="contact">
+${editorData.email ? `<span>✉ ${editorData.email}</span>` : ""}
+${editorData.phone ? `<span>✆ ${editorData.phone}</span>` : ""}
+${editorData.location ? `<span>📍 ${editorData.location}</span>` : ""}
+</div>
+</div>
+<div class="content">
+<div class="main">
+${editorData.summary ? `<h2>About Me</h2><p style="margin-bottom:20px;text-align:justify;font-size:10pt">${editorData.summary}</p>` : ""}
+${editorData.experience?.length > 0 ? `<h2>Experience</h2>${editorData.experience.map((e) => `
+<div class="item">
+<div class="item-header">${e.position || "Position"}</div>
+<div class="item-subheader">${e.company || "Company"}</div>
+<div class="item-meta">${e.location ? `${e.location} • ` : ""}${e.startDate || ""} - ${e.endDate || "Present"}</div>
+<div class="item-description">${e.description || ""}</div>
+</div>`).join("")}` : ""}
+${editorData.projects?.length > 0 ? `<h2>Projects</h2>${editorData.projects.map((p) => `
+<div class="project-item">
+<div class="project-title">${p.title || "Project"}</div>
+${p.technologies?.length > 0 ? `<div class="project-tech">${Array.isArray(p.technologies) ? p.technologies.join(" • ") : p.technologies}</div>` : ""}
+<div class="item-description">${p.description || ""}</div>
+</div>`).join("")}` : ""}
+</div>
+<div class="sidebar">
+${editorData.education?.length > 0 ? `<h2>Education</h2>${editorData.education.map((e) => `
+<div class="item">
+<div class="item-header">${e.degree || "Degree"}</div>
+<div class="item-subheader">${e.institution || "Institution"}</div>
+<div class="item-meta">${e.year || ""}${e.gpa ? ` • GPA: ${e.gpa}` : ""}</div>
+</div>`).join("")}` : ""}
+${editorData.skills?.technical?.length > 0 || editorData.skills?.tools?.length > 0 ? `<h2>Skills</h2>
+${editorData.skills.technical?.length > 0 ? `<div class="skill-category"><div class="skill-label">Technical</div><div class="skill-tags">${editorData.skills.technical.map(s => `<span class="skill-tag">${s}</span>`).join("")}</div></div>` : ""}
+${editorData.skills.tools?.length > 0 ? `<div class="skill-category"><div class="skill-label">Tools</div><div class="skill-tags">${editorData.skills.tools.map(s => `<span class="skill-tag">${s}</span>`).join("")}</div></div>` : ""}` : ""}
+${editorData.certifications?.length > 0 ? `<h2>Certifications</h2>${editorData.certifications.map((c) => `
+<div class="cert-item"><strong>${c.title || "Cert"}</strong>${c.issuer ? `<br/>${c.issuer}` : ""}${c.date ? `<br/><span style="color:#666">${c.date}</span>` : ""}</div>`).join("")}` : ""}
+</div>
+</div>
+</body></html>`;
+
 
   const handleOptimize = () => {
     toast.success("AI is optimizing your content...");
@@ -1306,6 +1387,15 @@ ${editorData.certifications?.length > 0 ? `<h2>Certifications</h2>${editorData.c
               <div className="px-2 py-0.5 rounded bg-white/5 border border-white/5 text-[10px] text-slate-400">
                 A4 Paper
               </div>
+              {/* Template Selector */}
+              <select
+                value={selectedTemplate}
+                onChange={(e) => setSelectedTemplate(e.target.value)}
+                className="px-3 py-1 rounded-lg bg-slate-800 border border-white/10 text-white text-xs font-medium cursor-pointer hover:bg-slate-700 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="classic">📄 Classic</option>
+                <option value="modern">✨ Modern</option>
+              </select>
             </div>
             <div className="flex items-center gap-2">
               <button
@@ -1484,10 +1574,108 @@ ${editorData.certifications?.length > 0 ? `<h2>Certifications</h2>${editorData.c
           
           <div className="flex-1 overflow-y-auto custom-scrollbar bg-white p-8 flex justify-center items-start">
             <div
-              className="pdf-page w-[595px] min-h-[842px] p-[40px] text-[11px] leading-[1.4] relative origin-top transform transition-transform duration-200"
+              className="pdf-page w-[595px] min-h-[842px] text-[11px] leading-[1.4] relative origin-top transform transition-transform duration-200"
               style={{ transform: `scale(${zoom / 100})` }}
             >
-              {/* PDF Preview Content */}
+              {/* PDF Preview Content - Template Conditional */}
+              {selectedTemplate === "modern" ? (
+                // Modern Template Preview
+                <>
+                  <div className="bg-gradient-to-r from-emerald-600 to-emerald-500 text-white p-8 text-center -m-0 mb-4">
+                    <h1 className="text-3xl font-bold uppercase tracking-widest mb-1">
+                      {editorData.name}
+                    </h1>
+                    <p className="text-sm opacity-95 tracking-wide">
+                      {editorData.title}
+                    </p>
+                    <div className="mt-3 text-[10px] opacity-90 flex justify-center gap-4">
+                      {editorData.email && <span>✉ {editorData.email}</span>}
+                      {editorData.phone && <span>✆ {editorData.phone}</span>}
+                      {editorData.location && <span>📍 {editorData.location}</span>}
+                    </div>
+                  </div>
+                  <div className="flex p-6 gap-6">
+                    <div className="flex-1">
+                      {editorData.summary && (
+                        <div className="mb-4">
+                          <h2 className="text-sm font-bold uppercase text-emerald-600 border-b-2 border-emerald-600 pb-1 mb-2">About Me</h2>
+                          <p className="text-justify text-gray-700">{editorData.summary}</p>
+                        </div>
+                      )}
+                      {editorData.experience?.length > 0 && (
+                        <div className="mb-4">
+                          <h2 className="text-sm font-bold uppercase text-emerald-600 border-b-2 border-emerald-600 pb-1 mb-2">Experience</h2>
+                          {editorData.experience.map((exp) => (
+                            <div key={exp.id} className="mb-3">
+                              <div className="font-bold text-gray-800">{exp.position}</div>
+                              <div className="text-emerald-600 font-medium text-[10px]">{exp.company}</div>
+                              <div className="text-gray-500 text-[9px]">{exp.location} • {exp.startDate} - {exp.endDate}</div>
+                              <div className="text-gray-700 text-[10px] mt-1">{exp.description?.split("\n").map((line, i) => <p key={i}>{line}</p>)}</div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      {editorData.projects?.length > 0 && (
+                        <div className="mb-4">
+                          <h2 className="text-sm font-bold uppercase text-emerald-600 border-b-2 border-emerald-600 pb-1 mb-2">Projects</h2>
+                          {editorData.projects.map((p, idx) => (
+                            <div key={idx} className="mb-2">
+                              <div className="font-bold text-gray-800">{p.title}</div>
+                              <div className="text-emerald-600 text-[9px] italic">{p.technologies?.join(" • ")}</div>
+                              <p className="text-gray-700 text-[10px]">{p.description}</p>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                    <div className="w-[160px] border-l-2 border-gray-200 pl-4">
+                      {editorData.education?.length > 0 && (
+                        <div className="mb-4">
+                          <h2 className="text-[10px] font-bold uppercase text-emerald-600 border-b-2 border-emerald-600 pb-1 mb-2">Education</h2>
+                          {editorData.education.map((edu) => (
+                            <div key={edu.id} className="mb-2 text-[9px]">
+                              <div className="font-bold text-gray-800">{edu.degree}</div>
+                              <div className="text-emerald-600">{edu.institution}</div>
+                              <div className="text-gray-500">{edu.year}</div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      {(editorData.skills?.technical?.length > 0 || editorData.skills?.tools?.length > 0) && (
+                        <div className="mb-4">
+                          <h2 className="text-[10px] font-bold uppercase text-emerald-600 border-b-2 border-emerald-600 pb-1 mb-2">Skills</h2>
+                          {editorData.skills?.technical?.length > 0 && (
+                            <div className="mb-2">
+                              <div className="font-bold text-[8px] text-gray-800 mb-1">Technical</div>
+                              <div className="flex flex-wrap gap-1">{editorData.skills.technical.map((s, i) => <span key={i} className="bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded text-[7px]">{s}</span>)}</div>
+                            </div>
+                          )}
+                          {editorData.skills?.tools?.length > 0 && (
+                            <div className="mb-2">
+                              <div className="font-bold text-[8px] text-gray-800 mb-1">Tools</div>
+                              <div className="flex flex-wrap gap-1">{editorData.skills.tools.map((s, i) => <span key={i} className="bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded text-[7px]">{s}</span>)}</div>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                      {editorData.certifications?.length > 0 && (
+                        <div className="mb-4">
+                          <h2 className="text-[10px] font-bold uppercase text-emerald-600 border-b-2 border-emerald-600 pb-1 mb-2">Certifications</h2>
+                          {editorData.certifications.map((c, idx) => (
+                            <div key={idx} className="mb-1 text-[8px]">
+                              <div className="font-bold text-gray-800">{c.title}</div>
+                              <div className="text-gray-600">{c.issuer}</div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </>
+              ) : (
+                // Classic Template Preview (existing)
+                <>
+              <div className={`p-[40px]`}>
               <div className={`border-b-2 border-gray-800 pb-4 mb-4 transition-all duration-500 ${(changedFields.name || changedFields.title || changedFields.email || changedFields.phone) ? 'bg-amber-100 ring-2 ring-amber-400 rounded-lg p-3 -m-3' : ''}`}>
                 <h1 className={`text-3xl font-serif font-bold text-gray-900 uppercase tracking-widest mb-1 ${changedFields.name ? 'text-amber-700' : ''}`}>
                   {editorData.name}
@@ -1498,7 +1686,7 @@ ${editorData.certifications?.length > 0 ? `<h2>Certifications</h2>${editorData.c
                 <div className="mt-2 text-gray-500 font-sans text-[10px] flex gap-3">
                   <span className={changedFields.email ? 'text-amber-700 font-bold' : ''}>{editorData.email}</span> •{" "}
                   <span className={changedFields.phone ? 'text-amber-700 font-bold' : ''}>{editorData.phone}</span> •{" "}
-                  <span>San Francisco, CA</span>
+                  <span>{editorData.location || "Location"}</span>
                 </div>
               </div>
               <div className={`mb-4 transition-all duration-500 ${changedFields.summary ? 'bg-amber-100 ring-2 ring-amber-400 rounded-lg p-3 -m-1' : ''}`}>
@@ -1625,6 +1813,9 @@ ${editorData.certifications?.length > 0 ? `<h2>Certifications</h2>${editorData.c
                     </div>
                   ))}
                 </div>
+              )}
+              </div>
+              </>
               )}
             </div>
           </div>
