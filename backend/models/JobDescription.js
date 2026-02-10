@@ -28,23 +28,18 @@ const JobDescription = sequelize.define(
       type: DataTypes.TEXT,
     },
 
-    embedding_vector: {
-      type: DataTypes.TEXT,
-      // stored as JSON string (e.g. "[0.12, 0.53, ...]")
-    },
-
     // File upload fields
-    mongo_file_id: {
-      type: DataTypes.STRING,
-    },
+    // mongo_file_id: {
+    //   type: DataTypes.STRING,
+    // },
 
-    file_name: {
-      type: DataTypes.STRING,
-    },
+    // file_name: {
+    //   type: DataTypes.STRING,
+    // },
 
-    file_size: {
-      type: DataTypes.BIGINT,
-    },
+    // file_size: {
+    //   type: DataTypes.BIGINT,
+    // },
   },
   {
     timestamps: false,

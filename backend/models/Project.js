@@ -33,17 +33,17 @@ const Project = sequelize.define(
     },
 
     // File upload fields
-    mongo_file_id: {
-      type: DataTypes.STRING,
-    },
+    // mongo_file_id: {
+    //   type: DataTypes.STRING,
+    // },
 
-    file_name: {
-      type: DataTypes.STRING,
-    },
+    // file_name: {
+    //   type: DataTypes.STRING,
+    // },
 
-    file_size: {
-      type: DataTypes.BIGINT,
-    },
+    // file_size: {
+    //   type: DataTypes.BIGINT,
+    // },
   },
   {
     timestamps: false,

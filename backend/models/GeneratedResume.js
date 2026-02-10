@@ -75,10 +75,10 @@ const GeneratedResume = sequelize.define(
     },
 
     // HTML content of the generated resume
-    generated_text: {
-      type: DataTypes.TEXT,
-      allowNull: true,
-    },
+    // generated_text: {
+    //   type: DataTypes.TEXT,
+    //   allowNull: true,
+    // },
 
     match_score: {
       type: DataTypes.FLOAT,
