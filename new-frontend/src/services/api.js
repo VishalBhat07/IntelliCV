@@ -131,6 +131,17 @@ export const jobDescriptionAPI = {
     return response.data;
   },
 
+  // Upload a JD file, extract text server-side, and save to MySQL
+  extractFromFile: async (userId, file) => {
+    const formData = new FormData();
+    formData.append("user_id", userId);
+    formData.append("file", file);
+    const response = await api.post("/job-description/extract", formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+    return response.data;
+  },
+
   get: async (userId) => {
     const response = await api.get(`/job-description/${userId}`);
     return response.data;

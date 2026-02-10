@@ -1,6 +1,6 @@
 import { useState, useRef } from "react";
 import toast from "react-hot-toast";
-import { uploadAPI } from "../../services/api";
+import { uploadAPI, jobDescriptionAPI } from "../../services/api";
 
 const JobDescriptionStep = ({ data, onUpdate, onNext, onBack }) => {
   const [jobText, setJobText] = useState(data?.text || "");
@@ -37,12 +37,23 @@ const JobDescriptionStep = ({ data, onUpdate, onNext, onBack }) => {
         return;
       }
 
-      // Upload the file with type "JobDescription"
+      // Upload the file to MongoDB with type "JobDescription"
       await uploadAPI.uploadFiles(user.user_id, [file], "JobDescription");
 
+      // Extract text from the file and save to MySQL
+      const result = await jobDescriptionAPI.extractFromFile(
+        user.user_id,
+        file
+      );
+
+      // Auto-fill the text area with extracted text
+      const extractedText = result.extractedText || "";
       setJobFile(file);
-      onUpdate({ text: jobText, file });
-      toast.success("Job description file uploaded!");
+      setJobText(extractedText);
+      setCharCount(extractedText.length);
+      onUpdate({ text: extractedText, file });
+
+      toast.success("Job description extracted and saved!");
     } catch (error) {
       console.error("Upload failed:", error);
       toast.error(
