@@ -8,7 +8,7 @@ const ResumeEditor = ({ resumeData, resumeId: existingResumeId }) => {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
   const [activeTab, setActiveTab] = useState("edit");
-  const [zoom, setZoom] = useState(150);
+  const [zoom, setZoom] = useState(110);
   const [isSaving, setIsSaving] = useState(false);
   const [isRegenerating, setIsRegenerating] = useState(false);
   const [currentResumeId, setCurrentResumeId] = useState(
