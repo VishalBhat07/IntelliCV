@@ -10,20 +10,42 @@ const GenerateStep = ({ resumeData, onBack, onComplete }) => {
   const [error, setError] = useState(null);
   const [generatedResume, setGeneratedResume] = useState(null);
   const hasStarted = useRef(false);
+  const apiDoneRef = useRef(false);
+  const apiResultRef = useRef(null);
+  const apiErrorRef = useRef(null);
 
   const steps = [
-    { label: "Analyzing your education", icon: "school" },
-    { label: "Processing uploaded documents", icon: "description" },
-    { label: "Extracting job requirements", icon: "work" },
-    { label: "Optimizing keywords for ATS", icon: "auto_awesome" },
-    { label: "Generating your resume", icon: "draw" },
+    { label: "Analyzing your profile", icon: "person_search", duration: 3000 },
+    { label: "Processing education details", icon: "school", duration: 3500 },
+    {
+      label: "Scanning uploaded documents",
+      icon: "description",
+      duration: 4000,
+    },
+    {
+      label: "Extracting skills & achievements",
+      icon: "psychology",
+      duration: 5000,
+    },
+    { label: "Analyzing job requirements", icon: "work", duration: 5000 },
+    {
+      label: "Matching keywords for ATS",
+      icon: "auto_awesome",
+      duration: 5500,
+    },
+    { label: "Crafting resume sections", icon: "draw", duration: 6000 },
+    { label: "Polishing & finalizing", icon: "verified", duration: 8000 },
   ];
+
+  // Progress targets for each step (when that step becomes active)
+  const stepProgressTargets = [5, 14, 25, 38, 50, 64, 78, 90];
 
   useEffect(() => {
     if (!generating || hasStarted.current) return;
     hasStarted.current = true;
 
-    const generateResume = async () => {
+    // --- Fire off the actual API call immediately in background ---
+    const runApiCall = async () => {
       try {
         const user = JSON.parse(localStorage.getItem("user"));
         if (!user?.user_id) {
@@ -31,67 +53,114 @@ const GenerateStep = ({ resumeData, onBack, onComplete }) => {
         }
         const userId = user.user_id;
 
-        // Extract selected document IDs from resumeData
-        const selectedDocIds = resumeData.documents?.selectedLibraryDocIds || [];
+        const selectedDocIds =
+          resumeData.documents?.selectedLibraryDocIds || [];
         console.log("📋 Selected library doc IDs:", selectedDocIds);
 
-        // Step 1: Analyze education (already saved in EducationStep)
-        setCurrentStep(0);
-        setProgress(10);
-        await new Promise((r) => setTimeout(r, 500));
-
-        // Step 2: Processing documents (already uploaded in DocumentsStep)
-        setCurrentStep(1);
-        setProgress(30);
-        await new Promise((r) => setTimeout(r, 500));
-
-        // Step 3: Save job description text if provided
-        setCurrentStep(2);
-        setProgress(50);
+        // Save job description if provided
         if (resumeData.jobDescription?.text) {
           await jobDescriptionAPI.save(userId, resumeData.jobDescription.text);
         }
-        await new Promise((r) => setTimeout(r, 500));
 
-        // Step 4: Optimize for ATS (part of process call)
-        setCurrentStep(3);
-        setProgress(70);
-        await new Promise((r) => setTimeout(r, 500));
-
-        // Step 5: Generate resume via LLM processing with selected docs
-        setCurrentStep(4);
-        setProgress(85);
+        // Generate resume via LLM processing
         console.log("🚀 Calling resumeAPI.process for user:", userId);
-        console.log("📌 With selected doc IDs:", selectedDocIds.length > 0 ? selectedDocIds : "all documents");
-        const result = await resumeAPI.process(userId, selectedDocIds.length > 0 ? selectedDocIds : null);
-        
+        console.log(
+          "📌 With selected doc IDs:",
+          selectedDocIds.length > 0 ? selectedDocIds : "all documents",
+        );
+        const result = await resumeAPI.process(
+          userId,
+          selectedDocIds.length > 0 ? selectedDocIds : null,
+        );
+
         console.log("✅ API Response received:", result);
         console.log("📄 Resume data:", result.resume);
         console.log("📊 Match score:", result.matchScore);
-        
-        setProgress(100);
-        setGeneratedResume(result);
-        setCompleted(true);
-        setGenerating(false);
-        toast.success("Resume generated successfully!");
 
-        // Trigger transition to editor after brief delay
-        setTimeout(() => {
-          if (onComplete) {
-            // Pass the actual resume data, not the whole result
-            console.log("📤 Passing resume to editor:", result.resume);
-            onComplete(result.resume);
-          }
-        }, 1500);
+        apiResultRef.current = result;
+        apiDoneRef.current = true;
       } catch (err) {
         console.error("Resume generation failed:", err);
-        setError(err.message || "Failed to generate resume");
-        setGenerating(false);
-        toast.error(err.response?.data?.msg || err.message || "Generation failed");
+        apiErrorRef.current = err;
+        apiDoneRef.current = true;
       }
     };
 
-    generateResume();
+    runApiCall();
+
+    // --- Animate steps independently with smooth progress ---
+    const animateSteps = async () => {
+      for (let i = 0; i < steps.length; i++) {
+        setCurrentStep(i);
+
+        const startProgress = i === 0 ? 0 : stepProgressTargets[i - 1];
+        const endProgress = stepProgressTargets[i];
+        const duration = steps[i].duration;
+        const incrementInterval = 150; // update every 150ms
+        const totalTicks = Math.floor(duration / incrementInterval);
+        const progressPerTick = (endProgress - startProgress) / totalTicks;
+
+        // Smoothly increment progress within this step
+        for (let tick = 0; tick < totalTicks; tick++) {
+          // If API is already done, accelerate to finish
+          if (apiDoneRef.current) {
+            // Quick-finish remaining steps
+            for (let j = i; j < steps.length; j++) {
+              setCurrentStep(j);
+              setProgress(stepProgressTargets[j]);
+              await new Promise((r) => setTimeout(r, 200));
+            }
+            // Finish up
+            finishGeneration();
+            return;
+          }
+          setProgress(Math.round(startProgress + progressPerTick * (tick + 1)));
+          await new Promise((r) => setTimeout(r, incrementInterval));
+        }
+      }
+
+      // All steps animated but API not done yet — hold at 92% with slow creep
+      let holdProgress = 92;
+      const creepInterval = setInterval(() => {
+        if (apiDoneRef.current) {
+          clearInterval(creepInterval);
+          finishGeneration();
+          return;
+        }
+        // Slowly creep toward 98% but never reach it
+        holdProgress = Math.min(holdProgress + 0.3, 98);
+        setProgress(Math.round(holdProgress));
+      }, 500);
+    };
+
+    const finishGeneration = () => {
+      if (apiErrorRef.current) {
+        const err = apiErrorRef.current;
+        setError(err.message || "Failed to generate resume");
+        setGenerating(false);
+        toast.error(
+          err.response?.data?.msg || err.message || "Generation failed",
+        );
+        return;
+      }
+
+      const result = apiResultRef.current;
+      setProgress(100);
+      setCurrentStep(steps.length); // all steps done
+      setGeneratedResume(result);
+      setCompleted(true);
+      setGenerating(false);
+      toast.success("Resume generated successfully!");
+
+      setTimeout(() => {
+        if (onComplete) {
+          console.log("📤 Passing resume to editor:", result.resume);
+          onComplete(result.resume);
+        }
+      }, 1500);
+    };
+
+    animateSteps();
   }, [generating, resumeData, onComplete]);
 
   const handleViewResume = () => {
@@ -111,7 +180,7 @@ const GenerateStep = ({ resumeData, onBack, onComplete }) => {
       toast.loading("Generating PDF...", { id: "pdf-download" });
       const blob = await resumeAPI.exportPdf(
         generatedResume.resume,
-        `Resume_${Date.now()}.pdf`
+        `Resume_${Date.now()}.pdf`,
       );
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement("a");
@@ -171,7 +240,7 @@ const GenerateStep = ({ resumeData, onBack, onComplete }) => {
         <p className="text-gray-400 text-lg max-w-xl mx-auto leading-relaxed">
           {completed
             ? "Your ATS-optimized resume has been created. Download it or view it in your dashboard."
-            : "Our AI is crafting your ATS-optimized resume. This usually takes about 30 seconds."}
+            : "Our AI is crafting your ATS-optimized resume. This may take up to a minute."}
         </p>
       </div>
 
@@ -193,7 +262,7 @@ const GenerateStep = ({ resumeData, onBack, onComplete }) => {
               </div>
               <div className="h-3 w-full bg-slate-800 rounded-full overflow-hidden">
                 <div
-                  className="h-full bg-gradient-to-r from-blue-500 to-emerald-500 rounded-full transition-all duration-200 shadow-[0_0_15px_rgba(59,130,246,0.5)]"
+                  className="h-full bg-gradient-to-r from-blue-500 to-emerald-500 rounded-full transition-all duration-500 ease-out shadow-[0_0_15px_rgba(59,130,246,0.5)]"
                   style={{ width: `${progress}%` }}
                 ></div>
               </div>
@@ -208,8 +277,8 @@ const GenerateStep = ({ resumeData, onBack, onComplete }) => {
                     index === currentStep
                       ? "bg-blue-500/10 border border-blue-500/30"
                       : index < currentStep
-                      ? "bg-emerald-500/10 border border-emerald-500/20"
-                      : "bg-white/5 border border-white/5"
+                        ? "bg-emerald-500/10 border border-emerald-500/20"
+                        : "bg-white/5 border border-white/5"
                   }`}
                 >
                   <div
@@ -217,8 +286,8 @@ const GenerateStep = ({ resumeData, onBack, onComplete }) => {
                       index === currentStep
                         ? "bg-blue-500 text-white"
                         : index < currentStep
-                        ? "bg-emerald-500 text-white"
-                        : "bg-slate-700 text-slate-400"
+                          ? "bg-emerald-500 text-white"
+                          : "bg-slate-700 text-slate-400"
                     }`}
                   >
                     {index < currentStep ? (
@@ -240,8 +309,8 @@ const GenerateStep = ({ resumeData, onBack, onComplete }) => {
                       index === currentStep
                         ? "text-blue-400"
                         : index < currentStep
-                        ? "text-emerald-400"
-                        : "text-slate-500"
+                          ? "text-emerald-400"
+                          : "text-slate-500"
                     }`}
                   >
                     {step.label}

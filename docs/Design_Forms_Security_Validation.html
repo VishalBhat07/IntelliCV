@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IntelliCV - Design of Forms, Security and Validation</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Georgia', serif;
+            line-height: 1.8;
+            color: #333;
+            background: #fff;
+            padding: 40px;
+            max-width: 900px;
+            margin: 0 auto;
+        }
+        
+        h1 {
+            text-align: center;
+            font-size: 1.8rem;
+            margin-bottom: 5px;
+            font-weight: normal;
+        }
+        
+        .subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 1rem;
+        }
+        
+        h2 {
+            font-size: 1.3rem;
+            margin: 30px 0 15px 0;
+            padding-bottom: 5px;
+            border-bottom: 1px solid #ccc;
+            font-weight: normal;
+        }
+        
+        h3 {
+            font-size: 1.1rem;
+            margin: 20px 0 10px 0;
+            font-weight: 600;
+        }
+        
+        p {
+            margin-bottom: 12px;
+            text-align: justify;
+        }
+        
+        ul {
+            margin: 10px 0 20px 25px;
+        }
+        
+        li {
+            margin-bottom: 8px;
+        }
+        
+        .code {
+            background: #f5f5f5;
+            border: 1px solid #ddd;
+            padding: 15px;
+            font-family: 'Consolas', monospace;
+            font-size: 0.85rem;
+            margin: 15px 0;
+            overflow-x: auto;
+            white-space: pre;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 15px 0;
+            font-size: 0.9rem;
+        }
+        
+        th, td {
+            border: 1px solid #ccc;
+            padding: 10px;
+            text-align: left;
+        }
+        
+        th {
+            background: #f5f5f5;
+            font-weight: 600;
+        }
+        
+        .footer {
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 1px solid #ccc;
+            text-align: center;
+            font-size: 0.9rem;
+            color: #666;
+        }
+        
+        @media print {
+            body { padding: 20px; }
+            
+            h2 {
+                page-break-before: always;
+                margin-top: 0;
+            }
+            
+            /* Prevent first section from having a page break */
+            h2:first-of-type {
+                page-break-before: auto;
+            }
+            
+            /* Prevent page breaks inside code blocks and tables */
+            .code, table {
+                page-break-inside: avoid;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <h1>IntelliCV</h1>
+    <p class="subtitle">Design of Forms, Security and Validation</p>
+
+    <!-- Forms Section -->
+    <h2>1. Form Design</h2>
+    
+    <h3>1.1 Login Form</h3>
+    <p>The login form collects user credentials with the following fields:</p>
+    <ul>
+        <li><strong>Email Address:</strong> Text input with type="email" for browser-level validation</li>
+        <li><strong>Password:</strong> Masked input with type="password" for security</li>
+        <li><strong>Submit Button:</strong> Triggers authentication with loading state indication</li>
+    </ul>
+    
+    <h3>1.2 Registration Form</h3>
+    <p>The signup form is organized into logical sections:</p>
+    <ul>
+        <li><strong>Personal Information:</strong> First Name, Last Name (both required)</li>
+        <li><strong>Contact Details:</strong> Email Address, Password (minimum 8 characters)</li>
+        <li><strong>Professional Goals:</strong> Target Job Title (optional)</li>
+    </ul>
+    
+    <h3>1.3 Resume Editor Form</h3>
+    <p>A comprehensive form with multiple sections:</p>
+    <ul>
+        <li><strong>Personal Info:</strong> Name, Title, Email, Phone, Location</li>
+        <li><strong>Summary:</strong> Textarea for professional summary</li>
+        <li><strong>Experience:</strong> Dynamic list with Position, Company, Duration, Description</li>
+        <li><strong>Education:</strong> Institution, Degree, Year, GPA</li>
+        <li><strong>Skills:</strong> Technical Skills, Tools, Soft Skills (comma-separated)</li>
+        <li><strong>Projects:</strong> Title, Description, Technologies, Link</li>
+        <li><strong>Certifications:</strong> Title, Issuer, Date</li>
+    </ul>
+
+    <!-- Security Section -->
+    <h2>2. Security Implementation</h2>
+    
+    <h3>2.1 Password Hashing</h3>
+    <p>User passwords are hashed using Bcrypt with a salt factor of 10 before storage:</p>
+    <div class="code">const bcrypt = require("bcrypt");
+
+// Registration - Hash password
+const hashedPassword = await bcrypt.hash(password, 10);
+
+// Login - Compare passwords
+const isMatch = await bcrypt.compare(inputPassword, storedHash);</div>
+    
+    <h3>2.2 JWT Authentication</h3>
+    <p>JSON Web Tokens are used for stateless authentication:</p>
+    <div class="code">const jwt = require("jsonwebtoken");
+
+// Generate token on login
+const token = jwt.sign(
+  { user_id: user.user_id }, 
+  process.env.JWT_SECRET, 
+  { expiresIn: "7d" }
+);
+
+// Verify token on protected routes
+const decoded = jwt.verify(token, process.env.JWT_SECRET);</div>
+    
+    <h3>2.3 Protected Routes</h3>
+    <p>API endpoints are protected using authentication middleware:</p>
+    <div class="code">module.exports = (req, res, next) => {
+  const token = req.headers.authorization?.split(" ")[1];
+  
+  if (!token) {
+    return res.status(401).json({ msg: "No token provided" });
+  }
+  
+  try {
+    req.user = jwt.verify(token, process.env.JWT_SECRET);
+    next();
+  } catch (err) {
+    return res.status(403).json({ msg: "Invalid token" });
+  }
+};</div>
+
+    <h3>2.4 SQL Injection Prevention</h3>
+    <p>Sequelize ORM is used for all database operations, which automatically parameterizes queries:</p>
+    <div class="code">// Safe query using Sequelize
+const user = await User.findOne({ where: { email: email } });
+
+// Direct SQL with parameterized query
+const [results] = await sequelize.query(
+  "SELECT * FROM users WHERE email = ?",
+  { replacements: [email] }
+);</div>
+
+    <!-- Validation Section -->
+    <h2>3. Validation</h2>
+    
+    <h3>3.1 Client-Side Validation</h3>
+    <table>
+        <tr>
+            <th>Field</th>
+            <th>Validation</th>
+            <th>Implementation</th>
+        </tr>
+        <tr>
+            <td>Email</td>
+            <td>Valid email format</td>
+            <td>HTML5 type="email" attribute</td>
+        </tr>
+        <tr>
+            <td>Password</td>
+            <td>Minimum 8 characters</td>
+            <td>minLength attribute + hint text</td>
+        </tr>
+        <tr>
+            <td>Required Fields</td>
+            <td>Non-empty</td>
+            <td>HTML5 required attribute</td>
+        </tr>
+        <tr>
+            <td>Form Submission</td>
+            <td>Prevent duplicate</td>
+            <td>Disabled button during loading</td>
+        </tr>
+    </table>
+    
+    <h3>3.2 Server-Side Validation</h3>
+    <table>
+        <tr>
+            <th>Validation</th>
+            <th>Implementation</th>
+        </tr>
+        <tr>
+            <td>Email uniqueness</td>
+            <td>Database check before registration</td>
+        </tr>
+        <tr>
+            <td>User existence</td>
+            <td>Verify user exists before login</td>
+        </tr>
+        <tr>
+            <td>Password verification</td>
+            <td>Bcrypt compare against stored hash</td>
+        </tr>
+        <tr>
+            <td>Token validation</td>
+            <td>JWT verification on protected routes</td>
+        </tr>
+        <tr>
+            <td>User ID validation</td>
+            <td>Check if user_id exists in requests</td>
+        </tr>
+    </table>
+
+</body>
+</html>

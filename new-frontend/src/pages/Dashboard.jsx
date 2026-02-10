@@ -147,7 +147,7 @@ ${resume.projects?.length > 0 ? `<h2>Projects</h2>${resume.projects.map((p) => `
   const handleImageUpload = (e) => {
     const file = e.target.files[0];
     if (file) {
-      if (file.size > 5 * 1024 * 1024) {
+      if (file.size > 15 * 1024 * 1024) {
         toast.error("Image must be less than 5MB");
         return;
       }
