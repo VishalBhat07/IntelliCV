@@ -259,7 +259,7 @@ connect()
   })
   .then(() => {
     console.log("MongoDB connected successfully");
-    return sequelize.sync({ alter: true });
+    return sequelize.sync();
   })
   .then(() => {
     console.log("MySQL Database Connected");

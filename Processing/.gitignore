@@ -4,3 +4,7 @@ venv
 pdfs
 *.json
 /uploads
+
+model_cache
+
+*.faiss

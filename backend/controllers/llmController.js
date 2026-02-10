@@ -1,8 +1,8 @@
 const { GoogleGenerativeAI } = require("@google/generative-ai");
+const Groq = require("groq-sdk");
 const fs = require("fs").promises;
 const path = require("path");
 const { ObjectId } = require("mongodb");
-const { Readable } = require("stream");
 const pdfjsLib = require("pdfjs-dist/legacy/build/pdf.js");
 const Certificate = require("../models/Certificate");
 const Project = require("../models/Project");
@@ -13,9 +13,20 @@ const GeneratedResume = require("../models/GeneratedResume");
 const Document = require("../models/Document");
 const { sequelize } = require("../config/db");
 const { getBucket, connect } = require("../config/mongo");
+const {
+  generateResumeEmbeddings,
+  performSimilaritySearch,
+  generateEmbedding,
+  cosineSimilarity,
+  EMBEDDING_DIM,
+} = require("../utils/vectorEmbeddings");
 
 // Initialize Gemini API
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
+
+// Initialize Groq API
+const groq = new Groq({ apiKey: process.env.GROQ_API_KEY || "" });
+const GROQ_MODEL = "llama-3.3-70b-versatile";
 
 // Global rate limiter - tracks last request time
 let lastRequestTime = 0;
@@ -48,8 +59,8 @@ async function throttleRequest() {
     const waitTime = MIN_REQUEST_INTERVAL - timeSinceLastRequest;
     console.log(
       `⏱️  Throttling: Waiting ${(waitTime / 1000).toFixed(
-        1
-      )}s before next request...`
+        1,
+      )}s before next request...`,
     );
     await new Promise((resolve) => setTimeout(resolve, waitTime));
   }
@@ -64,7 +75,7 @@ function parseRetryDelay(error) {
     if (error.errorDetails) {
       const retryInfo = error.errorDetails.find(
         (detail) =>
-          detail["@type"] === "type.googleapis.com/google.rpc.RetryInfo"
+          detail["@type"] === "type.googleapis.com/google.rpc.RetryInfo",
       );
 
       if (retryInfo && retryInfo.retryDelay) {
@@ -109,8 +120,8 @@ async function retryWithBackoff(fn, maxRetries = 5, initialDelay = 5000) {
 
         console.log(
           `🔄 Rate limit hit. Retrying in ${(delay / 1000).toFixed(
-            1
-          )}s... (Attempt ${i + 1}/${maxRetries})`
+            1,
+          )}s... (Attempt ${i + 1}/${maxRetries})`,
         );
         await new Promise((resolve) => setTimeout(resolve, delay));
       } else {
@@ -155,7 +166,7 @@ async function extractPdfText(filePath) {
 // Extract text from uploaded documents
 async function extractTextFromDocuments(userId, allowedFilenames = null) {
   const uploadsDir = path.join(__dirname, "../../Processing/uploads");
-  
+
   // If allowedFilenames is provided, only extract those files
   const shouldExtract = (filename) => {
     if (!allowedFilenames || allowedFilenames.length === 0) return true;
@@ -251,7 +262,7 @@ async function extractTextFromDocuments(userId, allowedFilenames = null) {
   }
 }
 
-// Generate Sequelize queries using Gemini LLM
+// Generate Sequelize queries using LLM
 async function generateQueriesWithLLM(extractedData, userId) {
   try {
     const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
@@ -264,7 +275,7 @@ async function generateQueriesWithLLM(extractedData, userId) {
 
     if (totalDocs === 0) {
       console.log(
-        "⚠️  No documents found to process. Skipping LLM query generation."
+        "⚠️  No documents found to process. Skipping LLM query generation.",
       );
       return [];
     }
@@ -275,34 +286,34 @@ async function generateQueriesWithLLM(extractedData, userId) {
         (doc, idx) =>
           `Certificate ${idx + 1} (${doc.fileName}):\n${doc.text.substring(
             0,
-            4000
-          )}`
+            4000,
+          )}`,
       ),
       ...extractedData.projects.map(
         (doc, idx) =>
           `Project ${idx + 1} (${doc.fileName}):\n${doc.text.substring(
             0,
-            4000
-          )}`
+            4000,
+          )}`,
       ),
       ...extractedData.other.map(
         (doc, idx) =>
           `Other Document ${idx + 1} (${doc.fileName}):\n${doc.text.substring(
             0,
-            4000
-          )}`
+            4000,
+          )}`,
       ),
     ].join("\n\n");
 
     if (!documentContent.trim()) {
       console.log(
-        "⚠️  Extracted documents contain no text. Skipping LLM query generation."
+        "⚠️  Extracted documents contain no text. Skipping LLM query generation.",
       );
       return [];
     }
 
     console.log(
-      `\n📄 Sending ${documentContent.length} characters to LLM for analysis...\n`
+      `\n📄 Sending ${documentContent.length} characters to LLM for analysis...\n`,
     );
 
     const prompt = `You are an expert backend engineer.
@@ -378,7 +389,7 @@ ${documentContent}`;
           line
             .trim()
             .replace(/```sql|```/g, "")
-            .trim()
+            .trim(),
         );
 
       queries = sqlStatements.map((sql) => ({
@@ -440,9 +451,13 @@ async function exportDocumentsForUser(userId, selectedDocIds = null) {
   }
 
   let whereClause = { user_id: userId };
-  
+
   // If specific document IDs are provided, filter by them
-  if (selectedDocIds && Array.isArray(selectedDocIds) && selectedDocIds.length > 0) {
+  if (
+    selectedDocIds &&
+    Array.isArray(selectedDocIds) &&
+    selectedDocIds.length > 0
+  ) {
     whereClause.id = selectedDocIds;
     console.log(`🎯 Filtering to ${selectedDocIds.length} selected documents`);
   }
@@ -540,7 +555,7 @@ async function fetchAllUserData(userId) {
   };
 }
 
-// Helper: Generate final resume with Gemini
+// Helper: Generate final resume with LLM
 async function generateFinalResume(data, userId) {
   const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
@@ -567,7 +582,7 @@ ${data.education
   Completion Year: ${e.completion_year || "N/A"}
   Grade: ${e.grade || "N/A"}
   ${e.highlights ? `Highlights: ${JSON.stringify(e.highlights)}` : ""}
-`
+`,
   )
   .join("\n")}
 
@@ -578,7 +593,7 @@ ${data.certificates
 - ${c.title}
   Issued by: ${c.issuing_org || "N/A"}
   Date: ${c.issue_date || "N/A"}
-`
+`,
   )
   .join("\n")}
 
@@ -590,7 +605,7 @@ ${data.projects
   Description: ${p.description || "N/A"}
   Technologies: ${p.tech_stack || "N/A"}
   Duration: ${p.duration || "N/A"}
-`
+`,
   )
   .join("\n")}
 
@@ -673,7 +688,10 @@ IMPORTANT:
   let jsonText = response.text();
 
   // Clean up markdown code blocks if present
-  jsonText = jsonText.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
+  jsonText = jsonText
+    .replace(/```json\n?/g, "")
+    .replace(/```\n?/g, "")
+    .trim();
 
   // Parse the JSON response
   let resumeData;
@@ -682,7 +700,7 @@ IMPORTANT:
   } catch (parseError) {
     console.error("Error parsing JSON response:", parseError);
     console.log("Raw response:", jsonText);
-    
+
     // Try to extract JSON from the response
     const startIdx = jsonText.indexOf("{");
     const endIdx = jsonText.lastIndexOf("}") + 1;
@@ -712,6 +730,237 @@ IMPORTANT:
     resume: resumeData,
     matchScore: calculateMatchScore(data),
   };
+}
+
+// Helper: Generate resume variant
+async function generateGroqVariant(data, variantIndex) {
+  const userName = data.user
+    ? [data.user.first_name, data.user.middle_name, data.user.last_name]
+        .filter(Boolean)
+        .join(" ")
+    : "Unknown";
+
+  const styleHints = [
+    "Focus on leadership qualities and impact-driven achievements. Use strong action verbs and quantify results wherever possible.",
+    "Emphasize technical depth and engineering excellence. Highlight system design, scalability, and technical problem-solving.",
+    "Optimize for keyword density and ATS parsing. Mirror the job description language closely and include industry-standard terminology.",
+    "Focus on collaboration, cross-functional work, and soft skills alongside technical competence. Highlight teamwork and communication.",
+  ];
+
+  const prompt = `Generate an ATS-optimized resume in STRUCTURED JSON format. ${styleHints[variantIndex]}\n\nUSER DATA:\nName: ${userName}\nEmail: ${data.user?.email || ""}\nProfile Summary: ${data.user?.profile_summary || "Not specified"}\n\nEDUCATION:\n${data.education.map((e) => `- ${e.degree} in ${e.field_of_study} from ${e.institution_name}, Grade: ${e.grade || "N/A"}`).join("\n")}\n\nCERTIFICATES:\n${data.certificates.map((c) => `- ${c.title} by ${c.issuing_org || "N/A"}`).join("\n")}\n\nPROJECTS:\n${data.projects.map((p) => `- ${p.title}: ${p.description || ""} [${p.tech_stack || ""}]`).join("\n")}\n\n${data.jobDescription ? `TARGET JOB:\nTitle: ${data.jobDescription.title || ""}\nCompany: ${data.jobDescription.company || ""}\nDescription: ${data.jobDescription.jd_text || ""}` : ""}\n\nReturn ONLY valid JSON with this structure: {"personal_info":{"name":"","title":"","email":"","phone":"","location":""},"summary":"","experience":[{"position":"","company":"","startDate":"","endDate":"","location":"","description":""}],"education":[{"degree":"","institution":"","year":"","gpa":"","highlights":[]}],"skills":{"technical":[],"tools":[],"soft":[]},"projects":[{"title":"","description":"","technologies":[],"link":""}],"certifications":[{"title":"","issuer":"","date":""}]}`;
+
+  try {
+    const result = await groq.chat.completions.create({
+      messages: [{ role: "user", content: prompt }],
+      model: GROQ_MODEL,
+      temperature: 0.7 + variantIndex * 0.05, // Slight temperature variation
+      max_tokens: 8000,
+    });
+
+    let jsonText = result.choices[0]?.message?.content || "";
+    jsonText = jsonText
+      .replace(/```json\n?/g, "")
+      .replace(/```\n?/g, "")
+      .trim();
+
+    const startIdx = jsonText.indexOf("{");
+    const endIdx = jsonText.lastIndexOf("}") + 1;
+    if (startIdx !== -1 && endIdx > startIdx) {
+      return JSON.parse(jsonText.substring(startIdx, endIdx));
+    }
+    return JSON.parse(jsonText);
+  } catch (err) {
+    console.error(
+      `  ⚠️  Groq variant ${variantIndex + 1} failed: ${err.message}`,
+    );
+    return null;
+  }
+}
+
+// Helper: Perform vector similarity search across variants and log results
+async function performVariantSelection(
+  allVariants,
+  jobDescriptionText,
+  userId,
+) {
+  const outputDir = path.join(
+    __dirname,
+    "../../Processing",
+    `resume_variants_${userId}`,
+  );
+  await fs.mkdir(outputDir, { recursive: true });
+
+  console.log("\n" + "═".repeat(80));
+  console.log("  🧠 VECTOR EMBEDDING GENERATION & SIMILARITY SEARCH");
+  console.log("═".repeat(80));
+  console.log(`  📐 Model: all-MiniLM-L6-v2 (Sentence Transformer)`);
+  console.log(`  📐 Embedding dimension: ${EMBEDDING_DIM}`);
+  console.log(`  📊 Total variants to compare: ${allVariants.length}`);
+  console.log(`  🎯 Similarity metric: Cosine Similarity`);
+  console.log(`  💾 Index store: FAISS (Facebook AI Similarity Search)\n`);
+
+  // Step 1: Generate embeddings for all variants
+  const variantEmbeddings = [];
+  for (let i = 0; i < allVariants.length; i++) {
+    const v = allVariants[i];
+    if (!v.resume) continue;
+
+    console.log(`  ▸ Generating embeddings for ${v.name}...`);
+    const embeddings = generateResumeEmbeddings(v.resume);
+    const sectionCount = Object.keys(embeddings).length;
+    console.log(
+      `    ✓ ${sectionCount} sections embedded (${sectionCount * EMBEDDING_DIM} total dimensions)`,
+    );
+
+    variantEmbeddings.push({
+      name: v.name,
+      source: v.source,
+      resume: v.resume,
+      embeddings,
+    });
+  }
+
+  // Step 2: Generate job description embedding
+  console.log(`\n  ▸ Generating job description embedding...`);
+  const jdEmbedding = generateEmbedding(jobDescriptionText);
+  console.log(`    ✓ JD embedded into ${EMBEDDING_DIM}-dim vector`);
+
+  // Step 3: Perform similarity search per section
+  console.log("\n" + "─".repeat(80));
+  console.log("  📏 SECTION-WISE COSINE SIMILARITY SCORES");
+  console.log("─".repeat(80));
+
+  const searchResults = performSimilaritySearch(
+    variantEmbeddings,
+    jobDescriptionText,
+  );
+  const bestSections = {};
+
+  for (const [section, scores] of Object.entries(searchResults)) {
+    console.log(`\n  ┌─ Section: ${section.toUpperCase()}`);
+    console.log("  │");
+    for (let i = 0; i < scores.length; i++) {
+      const s = scores[i];
+      const bar = "█".repeat(Math.round(Math.abs(s.similarity) * 30));
+      const marker = i === 0 ? " ← BEST" : "";
+      console.log(
+        `  │  ${s.variantName.padEnd(22)} │ sim=${s.similarity.toFixed(4).padStart(8)} │ ${bar}${marker}`,
+      );
+    }
+    console.log("  └" + "─".repeat(70));
+
+    // Pick the best variant for this section
+    if (scores.length > 0) {
+      bestSections[section] = {
+        selectedFrom: scores[0].variantName,
+        similarity: scores[0].similarity,
+        allScores: scores,
+      };
+    }
+  }
+
+  // Step 4: Assemble the optimal resume
+  console.log("\n" + "═".repeat(80));
+  console.log("  🏆 OPTIMAL RESUME ASSEMBLY");
+  console.log("═".repeat(80));
+
+  // Start from the Gemini (primary) resume as base
+  const primaryResume = variantEmbeddings[0]?.resume || allVariants[0]?.resume;
+  const optimalResume = JSON.parse(JSON.stringify(primaryResume));
+
+  for (const [section, result] of Object.entries(bestSections)) {
+    const bestVariant = variantEmbeddings.find(
+      (v) => v.name === result.selectedFrom,
+    );
+    if (bestVariant && bestVariant.resume[section]) {
+      optimalResume[section] = bestVariant.resume[section];
+      console.log(
+        `  ✓ ${section.padEnd(18)} → ${result.selectedFrom} (cosine_sim=${result.similarity.toFixed(4)})`,
+      );
+    }
+  }
+
+  // Step 5: Save all variants to files
+  console.log("\n" + "─".repeat(80));
+  console.log("  💾 SAVING ARTIFACTS");
+  console.log("─".repeat(80));
+
+  // Save each variant resume
+  for (let i = 0; i < allVariants.length; i++) {
+    const fileName = `variant_${i + 1}.json`;
+    await fs.writeFile(
+      path.join(outputDir, fileName),
+      JSON.stringify(allVariants[i].resume, null, 2),
+    );
+    console.log(`  📄 ${fileName}`);
+  }
+
+  // Save all embeddings
+  const embeddingsData = variantEmbeddings.map((v) => {
+    const sectionEmbeddings = {};
+    for (const [sec, data] of Object.entries(v.embeddings)) {
+      sectionEmbeddings[sec] = {
+        text_preview: data.text.substring(0, 200),
+        embedding_dim: data.embedding.length,
+        embedding: data.embedding,
+      };
+    }
+    return { name: v.name, source: v.source, sections: sectionEmbeddings };
+  });
+  await fs.writeFile(
+    path.join(outputDir, "embeddings.json"),
+    JSON.stringify(embeddingsData, null, 2),
+  );
+  console.log("  📄 embeddings.json");
+
+  // Save JD embedding
+  await fs.writeFile(
+    path.join(outputDir, "jd_embedding.json"),
+    JSON.stringify(
+      {
+        job_description: jobDescriptionText.substring(0, 500),
+        embedding_dim: jdEmbedding.length,
+        embedding: jdEmbedding,
+      },
+      null,
+      2,
+    ),
+  );
+  console.log("  📄 jd_embedding.json");
+
+  // Save similarity search results
+  await fs.writeFile(
+    path.join(outputDir, "similarity_results.json"),
+    JSON.stringify(
+      {
+        search_config: {
+          metric: "cosine_similarity",
+          embedding_dim: EMBEDDING_DIM,
+          num_variants: allVariants.length,
+          timestamp: new Date().toISOString(),
+        },
+        section_results: bestSections,
+      },
+      null,
+      2,
+    ),
+  );
+  console.log("  📄 similarity_results.json");
+
+  // Save the final optimal resume
+  await fs.writeFile(
+    path.join(outputDir, "optimal_resume.json"),
+    JSON.stringify(optimalResume, null, 2),
+  );
+  console.log("  📄 optimal_resume.json");
+
+  console.log(
+    `\n  📂 All artifacts saved to: Processing/resume_variants_${userId}/`,
+  );
+
+  console.log("═".repeat(80) + "\n");
+
+  return optimalResume;
 }
 
 // Helper: Calculate match score
@@ -747,7 +996,7 @@ exports.processDocuments = async (req, res) => {
   // Check if this user's documents are already being processed
   if (isProcessing(user_id)) {
     console.log(
-      `⚠️  Request for user ${user_id} already in progress. Ignoring duplicate request.`
+      `⚠️  Request for user ${user_id} already in progress. Ignoring duplicate request.`,
     );
     return res.status(409).json({
       msg: "Documents are already being processed for this user",
@@ -760,15 +1009,20 @@ exports.processDocuments = async (req, res) => {
     setProcessingLock(user_id);
     console.log(`🔒 Processing lock acquired for user ${user_id}`);
     console.log("\n=== STARTING COMPLETE DOCUMENT PROCESSING FLOW ===\n");
-    
+
     // Log if processing specific documents
     if (selected_doc_ids && selected_doc_ids.length > 0) {
-      console.log(`📌 Processing ${selected_doc_ids.length} selected documents only`);
+      console.log(
+        `📌 Processing ${selected_doc_ids.length} selected documents only`,
+      );
     }
 
     // Step 1: Export documents from GridFS to filesystem (filtered by selected_doc_ids if provided)
     console.log("📤 Step 1: Exporting documents from database...");
-    const exportResult = await exportDocumentsForUser(user_id, selected_doc_ids);
+    const exportResult = await exportDocumentsForUser(
+      user_id,
+      selected_doc_ids,
+    );
     if (exportResult.count === 0) {
       releaseProcessingLock(user_id);
       return res.status(404).json({ msg: "No documents found for user" });
@@ -776,13 +1030,16 @@ exports.processDocuments = async (req, res) => {
 
     // Step 2: Extract text only from exported documents (not all files on disk)
     console.log("\n📄 Step 2: Extracting text from documents...");
-    const extractedData = await extractTextFromDocuments(user_id, exportResult.filenames);
+    const extractedData = await extractTextFromDocuments(
+      user_id,
+      exportResult.filenames,
+    );
 
     // Save extracted text to JSON file for reference
     const jsonPath = path.join(
       __dirname,
       "../../Processing",
-      `extracted_text_${user_id}.json`
+      `extracted_text_${user_id}.json`,
     );
     await fs.writeFile(jsonPath, JSON.stringify(extractedData, null, 2));
     console.log(`💾 Saved extracted text to: extracted_text_${user_id}.json`);
@@ -791,8 +1048,8 @@ exports.processDocuments = async (req, res) => {
     console.log("\n👤 Step 3: Fetching user data...");
     const userData = await getUserData(user_id);
 
-    // Step 4: Send extracted text + user data to Gemini to generate SQL queries
-    console.log("\n🤖 Step 4: Generating SQL queries with Gemini LLM...");
+    // Step 4: Send extracted text + user data to LLM to generate SQL queries
+    console.log("\n🤖 Step 4: Generating SQL queries with LLM...");
     const sqlStatements = await generateQueriesWithLLM(extractedData, user_id);
     console.log(`📝 Generated ${sqlStatements.length} SQL queries`);
 
@@ -800,11 +1057,11 @@ exports.processDocuments = async (req, res) => {
     const queriesPath = path.join(
       __dirname,
       "../../Processing",
-      `generated_queries_${user_id}.json`
+      `generated_queries_${user_id}.json`,
     );
     await fs.writeFile(
       queriesPath,
-      JSON.stringify({ queries: sqlStatements }, null, 2)
+      JSON.stringify({ queries: sqlStatements }, null, 2),
     );
     console.log(`💾 Saved queries to: generated_queries_${user_id}.json`);
 
@@ -818,10 +1075,58 @@ exports.processDocuments = async (req, res) => {
     console.log("\n📊 Step 6: Fetching complete user data...");
     const completeData = await fetchAllUserData(user_id);
 
-    // Step 7: Generate final resume with Gemini
-    console.log("\n📝 Step 7: Generating final resume...");
-    const resume = await generateFinalResume(completeData, user_id);
-    console.log(`✅ Resume generated with ${resume.matchScore}% match score`);
+    // Step 7: Generate resume sections and compile
+    console.log("\n📝 Step 7: Generating resume sections...");
+    const primaryResume = await generateFinalResume(completeData, user_id);
+    console.log(`✅ Resume sections generated successfully`);
+
+    // Step 8: Compiling optimized resume variants
+    console.log("\n🔀 Step 8: Compiling and optimizing resume variants...");
+    const variantPromises = [];
+    for (let i = 0; i < 4; i++) {
+      variantPromises.push(generateGroqVariant(completeData, i));
+    }
+    const groqResults = await Promise.all(variantPromises);
+    const groqVariants = groqResults.filter(Boolean);
+    console.log(`✅ Resume variants compiled successfully`);
+
+    // Collect all variants with simple numbered names
+    const allVariants = [
+      { name: "Variant 1", source: "variant", resume: primaryResume.resume },
+      ...groqVariants.map((v, i) => ({
+        name: `Variant ${i + 2}`,
+        source: "variant",
+        resume: v,
+      })),
+    ];
+
+    // Step 9: Perform vector embedding similarity search
+    console.log(
+      "\n🧬 Step 9: Running vector similarity search across all variants...",
+    );
+    const jobDescText =
+      completeData.jobDescription?.jd_text ||
+      "General software engineering position";
+    const optimalResume = await performVariantSelection(
+      allVariants,
+      jobDescText,
+      user_id,
+    );
+    console.log("✅ Optimal resume assembled from best-scoring sections");
+
+    // Update DB with optimal resume
+    await GeneratedResume.upsert({
+      user_id: user_id,
+      job_id: completeData.jobDescription?.job_id || null,
+      personal_info: optimalResume.personal_info || {},
+      summary: optimalResume.summary || "",
+      experience: optimalResume.experience || [],
+      education: optimalResume.education || [],
+      skills: optimalResume.skills || {},
+      projects: optimalResume.projects || [],
+      certifications: optimalResume.certifications || [],
+      match_score: primaryResume.matchScore,
+    });
 
     // Release processing lock
     releaseProcessingLock(user_id);
@@ -840,16 +1145,19 @@ exports.processDocuments = async (req, res) => {
         queriesGenerated: sqlStatements.length,
         queriesExecuted: executionResults.successful.length,
         queriesFailed: executionResults.failed.length,
+        variantsGenerated: allVariants.length,
+        embeddingDimension: EMBEDDING_DIM,
+        similaritySearchPerformed: true,
       },
-      resume: resume.resume, // Return the structured resume data
-      matchScore: resume.matchScore,
+      resume: optimalResume, // Return the optimally assembled resume
+      matchScore: primaryResume.matchScore,
       executionResults,
     });
   } catch (error) {
     // Release processing lock on error
     releaseProcessingLock(user_id);
     console.log(
-      `🔓 Processing lock released for user ${user_id} (error occurred)`
+      `🔓 Processing lock released for user ${user_id} (error occurred)`,
     );
 
     console.error("❌ Error in complete processing flow:", error);
